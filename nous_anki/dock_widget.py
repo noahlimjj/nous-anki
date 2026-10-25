@@ -336,6 +336,11 @@ class NousDockWidget(QDockWidget):
         footer_row.addWidget(self.sync_status_label)
         footer_row.addStretch()
 
+        self.folder_btn = QPushButton("folder 📁")
+        self.folder_btn.setProperty("class", "actionButton")
+        self.folder_btn.clicked.connect(self.open_folder)
+        footer_row.addWidget(self.folder_btn)
+
         self.manual_sync_btn = QPushButton("sync")
         self.manual_sync_btn.setProperty("class", "actionButton")
         self.manual_sync_btn.clicked.connect(self.trigger_manual_sync)
@@ -343,6 +348,14 @@ class NousDockWidget(QDockWidget):
 
         layout.addLayout(footer_row)
         self.setWidget(container)
+
+    def open_folder(self):
+        try:
+            import os, subprocess
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+            subprocess.run(["open", base_dir])
+        except Exception as e:
+            print(f"[Nous Anki] Open folder error: {e}")
 
     # ---------------- Model Selector Handler ----------------
 

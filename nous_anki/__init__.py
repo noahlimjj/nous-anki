@@ -171,9 +171,11 @@ def on_top_toolbar_will_set_right_tray_content(content, toolbar):
     """Places the Nous button on the top right tray of Anki toolbar."""
     try:
         toolbar.link_handlers["nous_toggle"] = toggle_dock
+        toolbar.link_handlers["nous_folder"] = open_nous_folder
         button_html = (
+            '<div style="display:inline-flex;align-items:center;gap:4px;">'
             '<a class="hitem" tabindex="-1" aria-label="nous" '
-            'title="nous — click to open sidebar (Ctrl+Shift+N)" '
+            'title="nous — toggle sidebar (Ctrl+Shift+N)" '
             'href="#" onclick="return pycmd(\'nous_toggle\')" style="text-decoration:none;">'
             '<span style="display:inline-flex;align-items:center;gap:5px;background:#f1eef8;color:#5f5390;'
             'border:1px solid #e2ddf0;border-radius:14px;padding:3px 10px;font-family:\'Satoshi\',sans-serif;'
@@ -184,6 +186,12 @@ def on_top_toolbar_will_set_right_tray_content(content, toolbar):
             '</svg>'
             '<span>nous</span>'
             '</span></a>'
+            '<a class="hitem" tabindex="-1" aria-label="nous folder" '
+            'title="open nous add-on folder in finder" '
+            'href="#" onclick="return pycmd(\'nous_folder\')" style="text-decoration:none;">'
+            '<span style="display:inline-flex;align-items:center;padding:3px 7px;background:#ffffff;border:1px solid #e2ddf0;'
+            'border-radius:14px;font-size:11px;cursor:pointer;color:#5f5390;" title="open nous folder in finder">📁</span></a>'
+            '</div>'
         )
         content.append(button_html)
     except Exception:
@@ -236,9 +244,12 @@ def on_deck_browser_will_render_content(deck_browser, content):
 
 
 def on_webview_message(handled: tuple, message: str, context: Any):
-    """Handles bridge commands like pycmd('nous_toggle') from Anki webviews."""
+    """Handles bridge commands like pycmd('nous_toggle') and pycmd('nous_folder') from Anki webviews."""
     if message == "nous_toggle":
         toggle_dock()
+        return (True, None)
+    elif message == "nous_folder":
+        open_nous_folder()
         return (True, None)
     return handled
 
