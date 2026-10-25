@@ -1,10 +1,12 @@
 """
 Nous Sidebar Dock Widget for Anki
-Displays:
-1. Live Tree Growth & Progress (Ported from Nous tree-path.js)
-2. Link to Nous City (https://nous.study/city)
-3. AI & Web Search with Custom API Key
-4. Study Notes with 1-Click Card Appending
+Features:
+1. Live Tree Growth & Progress (Nous tree-path.js)
+2. Nous Focus Timer with authentic sound effects & auto-sync to habit dashboard
+3. 1-Click Link & Embedded View for Nous City (https://nous.study/city)
+4. AI Assistant: Ask questions using ANY model (GPT-4o, Claude 3.5, Gemini, Sonar, DeepSeek, Ollama)
+5. Embedded Web Browser: Browse medical resources or Nous City inside Anki
+6. Study Notes with 1-Click Card Injection
 """
 
 import html
@@ -15,11 +17,10 @@ try:
     from aqt.qt import (
         QDockWidget, QWidget, QVBoxLayout, QHBoxLayout, QLabel,
         QLineEdit, QTextEdit, QTextBrowser, QPushButton, QProgressBar,
-        QTabWidget, QFrame, Qt, QCursor, QFont, QSizePolicy
+        QTabWidget, QFrame, QComboBox, Qt, QCursor
     )
     from aqt import mw
 except ImportError:
-    # Dummy mock classes for headless testing outside Anki
     class QWidget: pass
     class QDockWidget: pass
     class QVBoxLayout: pass
@@ -32,15 +33,19 @@ except ImportError:
     class QProgressBar: pass
     class QTabWidget: pass
     class QFrame: pass
+    class QComboBox: pass
     class Qt:
         Horizontal = None
         RightDockWidgetArea = None
     mw = None
 
 from . import tree
-from .ai_search import AISearchClient
+from .ai_search import AISearchClient, POPULAR_MODELS
+from .browser_view import NousEmbeddedBrowser
 from .notes import NotesManager
+from .sound import NousSoundPlayer
 from .sync import NousSyncService
+from .timer_widget import NousTimerWidget
 
 
 STYLESHEET = """
@@ -54,7 +59,7 @@ QFrame.treeCard {
     background-color: #ffffff;
     border: 1px solid #e5e7eb;
     border-radius: 12px;
-    padding: 12px;
+    padding: 10px;
 }
 
 QLabel.treeName {
@@ -127,11 +132,11 @@ QPushButton.primaryButton:hover {
     background-color: #7c3aed;
 }
 
-QLineEdit, QTextEdit, QTextBrowser {
+QLineEdit, QTextEdit, QTextBrowser, QComboBox {
     background-color: #ffffff;
     border: 1px solid #d1d5db;
     border-radius: 6px;
-    padding: 6px;
+    padding: 5px;
     color: #1f2937;
     font-size: 12px;
 }
@@ -140,7 +145,7 @@ QTabWidget::pane {
     border: 1px solid #e5e7eb;
     background-color: #ffffff;
     border-radius: 8px;
-    padding: 6px;
+    padding: 4px;
 }
 """
 
@@ -148,16 +153,18 @@ QTabWidget::pane {
 class NousDockWidget(QDockWidget):
     TITLE = "Nous"
 
-    def __init__(self, parent, sync_service: NousSyncService, notes_mgr: NotesManager, config: Dict[str, Any]):
+    def __init__(self, parent, sync_service: NousSyncService, notes_mgr: NotesManager, sound_player: NousSoundPlayer, config: Dict[str, Any]):
         super().__init__(self.TITLE, parent)
         self.sync_service = sync_service
         self.notes_mgr = notes_mgr
+        self.sound = sound_player
         self.config = config
         self.current_card = None
+
         self.ai_client = AISearchClient(
             provider=config.get("ai_provider", "openai"),
             api_key=config.get("ai_api_key", ""),
-            model=config.get("ai_model", ""),
+            model=config.get("ai_model", "gpt-4o-mini"),
             base_url=config.get("ai_base_url", "")
         )
 
@@ -168,17 +175,16 @@ class NousDockWidget(QDockWidget):
     def setup_ui(self):
         container = QWidget()
         layout = QVBoxLayout(container)
-        layout.setContentsMargins(10, 10, 10, 10)
-        layout.setSpacing(10)
+        layout.setContentsMargins(8, 8, 8, 8)
+        layout.setSpacing(8)
 
         # 1. TREE & GAMIFICATION CARD
         self.tree_card = QFrame()
         self.tree_card.setProperty("class", "treeCard")
         tree_layout = QVBoxLayout(self.tree_card)
-        tree_layout.setContentsMargins(10, 10, 10, 10)
-        tree_layout.setSpacing(6)
+        tree_layout.setContentsMargins(8, 8, 8, 8)
+        tree_layout.setSpacing(4)
 
-        # Top row: Tree name + Tier badge
         name_tier_row = QHBoxLayout()
         self.tree_name_label = QLabel("Oak")
         self.tree_name_label.setProperty("class", "treeName")
@@ -191,91 +197,104 @@ class NousDockWidget(QDockWidget):
         name_tier_row.addWidget(self.tier_badge)
         tree_layout.addLayout(name_tier_row)
 
-        # Tree SVG view
         self.tree_svg_view = QTextBrowser()
-        self.tree_svg_view.setFixedHeight(115)
+        self.tree_svg_view.setFixedHeight(105)
         self.tree_svg_view.setStyleSheet("border: none; background: transparent;")
         self.tree_svg_view.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         self.tree_svg_view.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         tree_layout.addWidget(self.tree_svg_view)
 
-        # Tree Progress Bar
         self.tree_progress = QProgressBar()
         self.tree_progress.setRange(0, 100)
         self.tree_progress.setValue(0)
         tree_layout.addWidget(self.tree_progress)
 
-        # Tree status caption & blurb
-        self.tree_caption_label = QLabel("0.0 / 1.0h (1.0h to bloom)")
+        self.tree_caption_label = QLabel("0.0 / 1.0h")
         self.tree_caption_label.setStyleSheet("font-size: 11px; color: #6b7280; font-weight: 500;")
         tree_layout.addWidget(self.tree_caption_label)
 
-        # Overall summary row (Trees grown & total study hours)
         self.overall_label = QLabel("0.0 hrs on Nous • 0/26 trees grown")
         self.overall_label.setStyleSheet("font-size: 11px; color: #4b5563; font-weight: 600;")
         tree_layout.addWidget(self.overall_label)
 
-        # "Visit My City" button
+        city_row = QHBoxLayout()
         self.city_btn = QPushButton("🏙️ Visit My City")
         self.city_btn.setProperty("class", "cityButton")
         self.city_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.city_btn.clicked.connect(self.open_city_link)
-        tree_layout.addWidget(self.city_btn)
+
+        self.city_embed_btn = QPushButton("View in App")
+        self.city_embed_btn.setProperty("class", "actionButton")
+        self.city_embed_btn.clicked.connect(self.open_city_in_embedded_browser)
+
+        city_row.addWidget(self.city_btn)
+        city_row.addWidget(self.city_embed_btn)
+        tree_layout.addLayout(city_row)
 
         layout.addWidget(self.tree_card)
 
-        # 2. STUDY SYNC STATUS ROW
-        sync_row = QHBoxLayout()
-        self.sync_status_label = QLabel("🟢 Studying active")
-        self.sync_status_label.setStyleSheet("font-size: 11px; color: #10b981; font-weight: 500;")
-        self.sync_btn = QPushButton("Sync Now")
-        self.sync_btn.setProperty("class", "actionButton")
-        self.sync_btn.clicked.connect(self.trigger_manual_sync)
+        # 2. NOUS FOCUS TIMER
+        self.timer_widget = NousTimerWidget(
+            self,
+            sync_service=self.sync_service,
+            sound_player=self.sound,
+            on_synced=self.refresh_tree_display
+        )
+        layout.addWidget(self.timer_widget)
 
-        sync_row.addWidget(self.sync_status_label)
-        sync_row.addStretch()
-        sync_row.addWidget(self.sync_btn)
-        layout.addLayout(sync_row)
-
-        # 3. TABS: SEARCH & NOTES
+        # 3. TABS: AI Q&A, BROWSER, NOTES
         self.tabs = QTabWidget()
 
-        # --- SEARCH TAB ---
-        search_tab = QWidget()
-        search_layout = QVBoxLayout(search_tab)
-        search_layout.setContentsMargins(6, 6, 6, 6)
-        search_layout.setSpacing(6)
+        # --- TAB 1: AI ASSISTANT ---
+        ai_tab = QWidget()
+        ai_layout = QVBoxLayout(ai_tab)
+        ai_layout.setContentsMargins(6, 6, 6, 6)
+        ai_layout.setSpacing(6)
 
-        search_input_row = QHBoxLayout()
-        self.search_input = QLineEdit()
-        self.search_input.setPlaceholderText("Search flashcard concept or term...")
-        self.search_input.returnPressed.connect(self.run_ai_search)
+        # Model Selector Row
+        model_row = QHBoxLayout()
+        model_label = QLabel("Model:")
+        model_label.setStyleSheet("font-size: 11px; font-weight: 600;")
+        self.model_combo = QComboBox()
+        for label, prov, mname in POPULAR_MODELS:
+            self.model_combo.addItem(label, userData=(prov, mname))
 
-        self.ask_ai_btn = QPushButton("Ask AI")
-        self.ask_ai_btn.setProperty("class", "primaryButton")
-        self.ask_ai_btn.clicked.connect(self.run_ai_search)
+        self.custom_model_input = QLineEdit()
+        self.custom_model_input.setPlaceholderText("Any custom model (e.g. gpt-4o, claude-3-5-sonnet)...")
+        self.custom_model_input.hide()
+        self.model_combo.currentIndexChanged.connect(self._on_model_combo_changed)
 
-        search_input_row.addWidget(self.search_input)
-        search_input_row.addWidget(self.ask_ai_btn)
-        search_layout.addLayout(search_input_row)
+        model_row.addWidget(model_label)
+        model_row.addWidget(self.model_combo)
+        ai_layout.addLayout(model_row)
+        ai_layout.addWidget(self.custom_model_input)
 
-        # Quick web search buttons row
-        web_row = QHBoxLayout()
-        web_row.setSpacing(4)
-        for label, prov in [("Google", "google"), ("Amboss", "amboss"), ("PubMed", "pubmed"), ("Wiki", "wikipedia")]:
-            btn = QPushButton(label)
-            btn.setProperty("class", "actionButton")
-            btn.clicked.connect(lambda _, p=prov: self.open_web_search(p))
-            web_row.addWidget(btn)
-        search_layout.addLayout(web_row)
+        # Question input & Ask button
+        q_row = QHBoxLayout()
+        self.ai_input = QLineEdit()
+        self.ai_input.setPlaceholderText("Ask any question or explain card...")
+        self.ai_input.returnPressed.connect(self.run_ai_search)
 
-        # Result display
-        self.search_result_view = QTextBrowser()
-        self.search_result_view.setPlaceholderText("AI explanations and search results will appear here...")
-        search_layout.addWidget(self.search_result_view)
+        self.ask_btn = QPushButton("Ask")
+        self.ask_btn.setProperty("class", "primaryButton")
+        self.ask_btn.clicked.connect(self.run_ai_search)
 
-        # Result actions
-        result_action_row = QHBoxLayout()
+        self.explain_card_btn = QPushButton("Explain Card")
+        self.explain_card_btn.setProperty("class", "actionButton")
+        self.explain_card_btn.clicked.connect(self.explain_current_card)
+
+        q_row.addWidget(self.ai_input)
+        q_row.addWidget(self.ask_btn)
+        q_row.addWidget(self.explain_card_btn)
+        ai_layout.addLayout(q_row)
+
+        # AI Result View
+        self.ai_result_view = QTextBrowser()
+        self.ai_result_view.setPlaceholderText("AI explanations and answers appear here...")
+        ai_layout.addWidget(self.ai_result_view)
+
+        # Actions on AI response
+        ai_act_row = QHBoxLayout()
         self.copy_to_notes_btn = QPushButton("Copy to Notes")
         self.copy_to_notes_btn.setProperty("class", "actionButton")
         self.copy_to_notes_btn.clicked.connect(self.copy_search_to_notes)
@@ -284,20 +303,24 @@ class NousDockWidget(QDockWidget):
         self.add_to_card_btn.setProperty("class", "actionButton")
         self.add_to_card_btn.clicked.connect(self.add_search_to_card)
 
-        result_action_row.addWidget(self.copy_to_notes_btn)
-        result_action_row.addWidget(self.add_to_card_btn)
-        search_layout.addLayout(result_action_row)
+        ai_act_row.addWidget(self.copy_to_notes_btn)
+        ai_act_row.addWidget(self.add_to_card_btn)
+        ai_layout.addLayout(ai_act_row)
 
-        self.tabs.addTab(search_tab, "🔍 Search")
+        self.tabs.addTab(ai_tab, "🤖 AI Q&A")
 
-        # --- NOTES TAB ---
+        # --- TAB 2: EMBEDDED BROWSER ---
+        self.browser_view = NousEmbeddedBrowser(self, home_url=self.config.get("nous_city_url", "https://nous.study/city"))
+        self.tabs.addTab(self.browser_view, "🌐 Browser")
+
+        # --- TAB 3: NOTES ---
         notes_tab = QWidget()
         notes_layout = QVBoxLayout(notes_tab)
         notes_layout.setContentsMargins(6, 6, 6, 6)
         notes_layout.setSpacing(6)
 
         self.notes_edit = QTextEdit()
-        self.notes_edit.setPlaceholderText("Jot down quick study notes, mnemonics, or questions...")
+        self.notes_edit.setPlaceholderText("Study notes, mnemonics, scratchpad...")
         self.notes_edit.setText(self.notes_mgr.load_scratchpad())
         self.notes_edit.textChanged.connect(self.on_notes_changed)
         notes_layout.addWidget(self.notes_edit)
@@ -318,13 +341,30 @@ class NousDockWidget(QDockWidget):
         self.tabs.addTab(notes_tab, "📝 Notes")
 
         layout.addWidget(self.tabs)
-
         self.setWidget(container)
+
+    # ---------------- Model Selector Handler ----------------
+
+    def _on_model_combo_changed(self, idx: int):
+        data = self.model_combo.currentData()
+        if data and data[0] == "custom":
+            self.custom_model_input.show()
+        else:
+            self.custom_model_input.hide()
+
+    def get_selected_model_and_provider(self):
+        data = self.model_combo.currentData()
+        if not data:
+            return "openai", "gpt-4o-mini"
+        prov, mname = data
+        if prov == "custom":
+            custom_name = self.custom_model_input.text().strip()
+            return "openai", custom_name or "gpt-4o-mini"
+        return prov, mname
 
     # ---------------- Tree & City Logic ----------------
 
     def refresh_tree_display(self):
-        """Recalculates and updates the tree widget based on user's current hours."""
         state = self.sync_service.cached_state
         uid = state.get("userId") or self.config.get("nous_user_id") or "default_user"
         total_hours = float(state.get("totalHours", 0.0))
@@ -353,9 +393,8 @@ class NousDockWidget(QDockWidget):
         self.tree_caption_label.setText(f"{hours_left:.1f}h remaining to bloom")
         self.overall_label.setText(f"{total_hours:.1f} hrs on Nous • {grown}/{total_trees} trees grown 🌲")
 
-        # Render SVG
         cur_id = prog.get("current", {}).get("id", "oak") if prog.get("current") else "oak"
-        svg_code = tree.generate_tree_svg(cur_id, pct=pct, size=105)
+        svg_code = tree.generate_tree_svg(cur_id, pct=pct, size=95)
         html_content = f"""<html><body style="margin:0; padding:0; display:flex; justify-content:center; align-items:center; background:transparent;">
         <center>{svg_code}</center>
         </body></html>"""
@@ -365,96 +404,82 @@ class NousDockWidget(QDockWidget):
         city_url = self.config.get("nous_city_url", "https://nous.study/city")
         webbrowser.open(city_url)
 
-    # ---------------- Study Sync Handlers ----------------
+    def open_city_in_embedded_browser(self):
+        city_url = self.config.get("nous_city_url", "https://nous.study/city")
+        self.browser_view.navigate(city_url)
+        self.tabs.setCurrentIndex(1)  # switch to Browser tab
 
-    def trigger_manual_sync(self):
-        self.sync_status_label.setText("⏳ Syncing to Nous...")
-        habit_name = self.config.get("nous_habit_name", "Anki")
+    # ---------------- AI Q&A Logic ----------------
 
-        def on_done(ok: bool, count: int):
-            def update():
-                self.sync_status_label.setText(f"🟢 Synced {count} session(s)")
-                self.refresh_tree_display()
-            if mw and hasattr(mw, "taskman"):
-                mw.taskman.run_on_main(update)
-            else:
-                update()
-
-        self.sync_service.process_and_sync(habit_name=habit_name, min_ms=1000, on_done=on_done)
-
-    # ---------------- AI & Web Search ----------------
-
-    def set_search_query(self, query: str):
-        if query and query.strip():
-            self.search_input.setText(query.strip())
-            self.tabs.setCurrentIndex(0)
+    def explain_current_card(self):
+        if not self.current_card:
+            self.ai_result_view.setHtml("<i>No active flashcard currently displayed.</i>")
+            return
+        try:
+            q_text = self.current_card.question()
+            import re
+            clean_q = re.sub(r"<[^>]+>", " ", q_text).strip()
+            self.ai_input.setText(f"Explain this concept and give high-yield pearls: {clean_q[:250]}")
+            self.run_ai_search()
+        except Exception as e:
+            self.ai_result_view.setHtml(f"<i>Could not read card: {e}</i>")
 
     def run_ai_search(self):
-        query = self.search_input.text().strip()
+        query = self.ai_input.text().strip()
         if not query:
             return
 
-        self.search_result_view.setHtml("<i>Searching AI study assistant...</i>")
-        self.ask_ai_btn.setEnabled(False)
+        prov, model_name = self.get_selected_model_and_provider()
+
+        self.ai_result_view.setHtml(f"<i>Thinking with {model_name}...</i>")
+        self.ask_btn.setEnabled(False)
 
         def on_result(res: Dict[str, Any]):
             def update():
-                self.ask_ai_btn.setEnabled(True)
+                self.ask_btn.setEnabled(True)
                 if res.get("success"):
                     ans = html.escape(res.get("answer", "")).replace("\n", "<br>")
-                    prov = res.get("provider", "AI")
-                    model = res.get("model", "")
+                    p = res.get("provider", "AI")
+                    m = res.get("model", model_name)
                     content = f"""<div style="font-family: sans-serif; font-size: 13px; line-height: 1.5; color: #1f2937;">
                     <div style="font-size: 11px; color: #7c3aed; font-weight: 700; margin-bottom: 6px;">
-                        ✦ {prov} ({model})
+                        ✦ {p} ({m})
                     </div>
                     {ans}
                     </div>"""
-                    self.search_result_view.setHtml(content)
+                    self.ai_result_view.setHtml(content)
                 else:
                     err = res.get("error", "Unknown error")
-                    self.search_result_view.setHtml(f'<span style="color: #ef4444;">Error: {html.escape(err)}</span>')
+                    self.ai_result_view.setHtml(f'<span style="color: #ef4444;">Error: {html.escape(err)}</span>')
 
             if mw and hasattr(mw, "taskman"):
                 mw.taskman.run_on_main(update)
             else:
                 update()
 
-        self.ai_client.search_query_async(query, on_result)
-
-    def open_web_search(self, provider: str):
-        query = self.search_input.text().strip()
-        if not query and self.current_card:
-            # Fall back to card question text if search input is blank
-            try:
-                query = self.current_card.question()
-            except Exception:
-                pass
-        if query:
-            url = AISearchClient.get_web_search_url(provider, query)
-            webbrowser.open(url)
+        self.ai_client.search_query_async(query, on_result, override_model=model_name, override_provider=prov)
 
     def copy_search_to_notes(self):
-        plain_text = self.search_result_view.toPlainText()
+        plain_text = self.ai_result_view.toPlainText()
         if plain_text.strip():
             cur = self.notes_edit.toPlainText()
             separator = "\n\n---\n" if cur.strip() else ""
             self.notes_edit.setText(f"{cur}{separator}{plain_text.strip()}")
-            self.tabs.setCurrentIndex(1)
+            self.tabs.setCurrentIndex(2)
 
     def add_search_to_card(self):
-        text = self.search_result_view.toPlainText()
+        text = self.ai_result_view.toPlainText()
         if not text.strip():
             return
         if not self.current_card:
-            self.sync_status_label.setText("⚠️ No active card to add to")
+            self.ai_result_view.setHtml("<span style='color: #d97706;'>⚠️ No active card to add to</span>")
             return
 
         ok = NotesManager.append_note_to_card(self.current_card, text)
         if ok:
-            self.sync_status_label.setText("✅ Added explanation to card!")
+            self.ai_result_view.setHtml("<span style='color: #10b981; font-weight: bold;'>✅ Added explanation to card!</span>")
         else:
-            self.sync_status_label.setText("⚠️ Failed to update card")
+            self.ai_result_view.setHtml("<span style='color: #ef4444;'>⚠️ Failed to update card note</span>")
 
     # ---------------- Notes ----------------
 
@@ -463,17 +488,12 @@ class NousDockWidget(QDockWidget):
 
     def append_notes_to_active_card(self):
         text = self.notes_edit.toPlainText().strip()
-        if not text:
+        if not text or not self.current_card:
             return
-        if not self.current_card:
-            self.sync_status_label.setText("⚠️ No active card open")
-            return
-
         ok = NotesManager.append_note_to_card(self.current_card, text)
         if ok:
-            self.sync_status_label.setText("✅ Appended notes to card!")
-        else:
-            self.sync_status_label.setText("⚠️ Could not append note")
+            self.timer_widget.timer_status.setText("✅ Appended note to card!")
+            self.timer_widget.timer_status.setStyleSheet("font-size: 11px; color: #10b981;")
 
     def clear_notes(self):
         self.notes_edit.clear()

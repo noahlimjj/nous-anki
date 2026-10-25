@@ -41,7 +41,9 @@ def build_package():
     if os.path.isdir(anki_addons_dir):
         dest_addon = os.path.join(anki_addons_dir, "nous_anki")
         print(f"[Install] Deploying to Anki addons directory: {dest_addon}")
-        if os.path.exists(dest_addon):
+        if os.path.islink(dest_addon):
+            os.unlink(dest_addon)
+        elif os.path.exists(dest_addon):
             shutil.rmtree(dest_addon)
         shutil.copytree(source_dir, dest_addon, ignore=shutil.ignore_patterns("__pycache__", "user_files", "*.pyc"))
         print(f"[Install] Installed to {dest_addon}")

@@ -21,6 +21,7 @@ except ImportError:
 from .dock_widget import NousDockWidget
 from .notes import NotesManager
 from .settings_dialog import SettingsDialog
+from .sound import NousSoundPlayer
 from .sync import NousSyncService
 
 ADDON_NAME = "nous_anki"
@@ -149,13 +150,14 @@ def setup_addon():
     storage_dir = get_user_storage_dir()
     sync_service = NousSyncService(storage_dir)
     notes_mgr = NotesManager(storage_dir)
+    sound_player = NousSoundPlayer(storage_dir)
 
     # Initial stats fetch in background
     sync_service.fetch_user_stats()
 
     # Create dock widget
     if mw:
-        dock_widget = NousDockWidget(mw, sync_service, notes_mgr, addon_config)
+        dock_widget = NousDockWidget(mw, sync_service, notes_mgr, sound_player, addon_config)
         mw.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, dock_widget)
 
         if not addon_config.get("show_dock_on_startup", True):
