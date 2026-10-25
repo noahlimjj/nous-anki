@@ -127,138 +127,7 @@ from .notes import NotesManager
 from .sound import NousSoundPlayer
 from .sync import NousSyncService
 from .timer_widget import NousTimerWidget
-
-
-STYLESHEET = """
-QDockWidget {
-    font-family: "Satoshi", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    background-color: #f8f9fb;
-    color: #363f51;
-}
-
-QFrame.treeCard {
-    background-color: #ffffff;
-    border: 1px solid #ebe8f3;
-    border-radius: 14px;
-    padding: 12px;
-}
-
-QLabel.treeName {
-    font-family: "Satoshi", -apple-system, BlinkMacSystemFont, sans-serif;
-    font-size: 16px;
-    font-weight: 500;
-    color: #363f51;
-    letter-spacing: 0.015em;
-}
-
-QLabel.tierBadge {
-    font-family: "Satoshi", sans-serif;
-    font-size: 10px;
-    font-weight: 700;
-    text-transform: uppercase;
-    color: #ffffff;
-    border-radius: 10px;
-    padding: 2px 9px;
-    letter-spacing: 0.04em;
-}
-
-QProgressBar {
-    border: 1px solid #ebe8f3;
-    border-radius: 7px;
-    text-align: center;
-    font-family: "Satoshi", sans-serif;
-    font-size: 11px;
-    font-weight: 500;
-    height: 14px;
-    background-color: #f1eef8;
-    color: #5f5390;
-}
-
-QProgressBar::chunk {
-    border-radius: 6px;
-    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #5FA8A3, stop:1 #42958f);
-}
-
-QPushButton.cityButton {
-    background-color: #5FA8A3;
-    color: #ffffff;
-    font-family: "Satoshi", sans-serif;
-    font-weight: 500;
-    font-size: 12px;
-    border-radius: 16px;
-    padding: 6px 14px;
-    border: none;
-    letter-spacing: 0.02em;
-}
-QPushButton.cityButton:hover {
-    background-color: #4f9691;
-}
-
-QPushButton.actionButton {
-    background-color: #f1eef8;
-    color: #5f5390;
-    font-family: "Satoshi", sans-serif;
-    font-weight: 500;
-    font-size: 11px;
-    border: 1px solid #e2ddf0;
-    border-radius: 14px;
-    padding: 4px 10px;
-}
-QPushButton.actionButton:hover {
-    background-color: #e6e0f3;
-}
-
-QPushButton.primaryButton {
-    background-color: #8B7FB8;
-    color: #ffffff;
-    font-family: "Satoshi", sans-serif;
-    font-weight: 500;
-    font-size: 11px;
-    border-radius: 14px;
-    padding: 5px 14px;
-    border: none;
-    letter-spacing: 0.02em;
-}
-QPushButton.primaryButton:hover {
-    background-color: #7b6fa6;
-}
-
-QLineEdit, QTextEdit, QTextBrowser, QComboBox {
-    font-family: "Satoshi", -apple-system, BlinkMacSystemFont, sans-serif;
-    background-color: #ffffff;
-    border: 1px solid #ebe8f3;
-    border-radius: 8px;
-    padding: 6px;
-    color: #363f51;
-    font-size: 12px;
-}
-
-QLineEdit:focus, QTextEdit:focus, QComboBox:focus {
-    border: 1px solid #8B7FB8;
-}
-
-QTabWidget::pane {
-    border: 1px solid #ebe8f3;
-    background-color: #ffffff;
-    border-radius: 12px;
-    padding: 6px;
-}
-
-QTabBar::tab {
-    font-family: "Satoshi", sans-serif;
-    font-size: 12px;
-    font-weight: 400;
-    color: #7d8ca8;
-    padding: 6px 12px;
-    border: none;
-}
-
-QTabBar::tab:selected {
-    color: #5f5390;
-    font-weight: 600;
-    border-bottom: 2px solid #8B7FB8;
-}
-"""
+from .theme import NOUS_STYLESHEET, ensure_fonts_loaded
 
 
 class NousDockWidget(QDockWidget):
@@ -279,8 +148,9 @@ class NousDockWidget(QDockWidget):
             base_url=config.get("ai_base_url", "")
         )
 
+        ensure_fonts_loaded()
         self.setup_ui()
-        self.setStyleSheet(STYLESHEET)
+        self.setStyleSheet(NOUS_STYLESHEET)
         self.refresh_tree_display()
 
     def setup_ui(self):
@@ -321,11 +191,11 @@ class NousDockWidget(QDockWidget):
         tree_layout.addWidget(self.tree_progress)
 
         self.tree_caption_label = QLabel("0.0 / 1.0h")
-        self.tree_caption_label.setStyleSheet("font-size: 11px; color: #6b7280; font-weight: 500;")
+        self.tree_caption_label.setStyleSheet("font-size: 11px; color: #7d8ca8; font-weight: 500;")
         tree_layout.addWidget(self.tree_caption_label)
 
         self.overall_label = QLabel("0.0 hrs on Nous • 0/26 trees grown")
-        self.overall_label.setStyleSheet("font-size: 11px; color: #4b5563; font-weight: 600;")
+        self.overall_label.setStyleSheet("font-size: 11px; color: #363f51; font-weight: 500;")
         tree_layout.addWidget(self.overall_label)
 
         city_row = QHBoxLayout()
@@ -365,8 +235,16 @@ class NousDockWidget(QDockWidget):
         # Model Selector Row
         model_row = QHBoxLayout()
         model_label = QLabel("Model:")
-        model_label.setStyleSheet("font-size: 11px; font-weight: 600;")
+        model_label.setStyleSheet("font-size: 11px; font-weight: 500; color: #5f5390;")
         self.model_combo = QComboBox()
+        try:
+            from PyQt6.QtWidgets import QListView
+            self.model_combo.setView(QListView())
+        except Exception:
+            pass
+        if hasattr(Qt, "CursorShape"):
+            self.model_combo.setCursor(Qt.CursorShape.PointingHandCursor)
+
         for label, prov, mname in POPULAR_MODELS:
             self.model_combo.addItem(label, userData=(prov, mname))
 
@@ -452,6 +330,20 @@ class NousDockWidget(QDockWidget):
         self.tabs.addTab(notes_tab, "📝 Notes")
 
         layout.addWidget(self.tabs)
+
+        # Footer Sync Status Row
+        footer_row = QHBoxLayout()
+        self.sync_status_label = QLabel("✨ Auto-syncing to Nous")
+        self.sync_status_label.setStyleSheet("font-size: 10px; color: #7d8ca8; font-weight: 500;")
+        footer_row.addWidget(self.sync_status_label)
+        footer_row.addStretch()
+
+        self.manual_sync_btn = QPushButton("Sync")
+        self.manual_sync_btn.setProperty("class", "actionButton")
+        self.manual_sync_btn.clicked.connect(self.trigger_manual_sync)
+        footer_row.addWidget(self.manual_sync_btn)
+
+        layout.addLayout(footer_row)
         self.setWidget(container)
 
     # ---------------- Model Selector Handler ----------------
@@ -519,6 +411,17 @@ class NousDockWidget(QDockWidget):
         city_url = self.config.get("nous_city_url", "https://nous.study/city")
         self.browser_view.navigate(city_url)
         self.tabs.setCurrentIndex(1)  # switch to Browser tab
+
+    def trigger_manual_sync(self):
+        self.sync_status_label.setText("⏳ Syncing to Nous...")
+        habit = self.config.get("nous_habit_name", "Anki")
+        def on_done(ok: bool, count: int):
+            self.refresh_tree_display()
+            if ok:
+                self.sync_status_label.setText("✅ Synced to Nous")
+            else:
+                self.sync_status_label.setText("⚠️ Sync failed")
+        self.sync_service.process_and_sync(habit_name=habit, min_ms=1000, on_done=on_done)
 
     # ---------------- AI Q&A Logic ----------------
 

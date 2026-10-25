@@ -5,6 +5,7 @@ Allows browsing medical resources, web search, or Nous City directly inside Anki
 
 from typing import Optional
 import urllib.parse
+from .theme import NOUS_STYLESHEET, ensure_fonts_loaded
 
 try:
     from aqt.qt import (
@@ -68,32 +69,37 @@ class NousEmbeddedBrowser(QWidget):
         self.setup_ui()
 
     def setup_ui(self):
+        ensure_fonts_loaded()
         layout = QVBoxLayout(self)
         layout.setContentsMargins(4, 4, 4, 4)
-        layout.setSpacing(4)
+        layout.setSpacing(6)
 
         # 1. Navigation & Address Bar
         nav_row = QHBoxLayout()
-        nav_row.setSpacing(2)
+        nav_row.setSpacing(4)
 
         self.back_btn = QPushButton("◀")
+        self.back_btn.setProperty("class", "iconButton")
         self.back_btn.setFixedWidth(28)
         self.back_btn.clicked.connect(self.go_back)
 
         self.fwd_btn = QPushButton("▶")
+        self.fwd_btn.setProperty("class", "iconButton")
         self.fwd_btn.setFixedWidth(28)
         self.fwd_btn.clicked.connect(self.go_forward)
 
         self.reload_btn = QPushButton("⟳")
+        self.reload_btn.setProperty("class", "iconButton")
         self.reload_btn.setFixedWidth(28)
         self.reload_btn.clicked.connect(self.reload_page)
 
         self.url_input = QLineEdit()
-        self.url_input.setPlaceholderText("Enter URL or search query...")
+        self.url_input.setPlaceholderText("Enter URL or search medical terms...")
         self.url_input.returnPressed.connect(self.navigate_to_input)
 
         self.go_btn = QPushButton("Go")
-        self.go_btn.setFixedWidth(36)
+        self.go_btn.setProperty("class", "primaryButton")
+        self.go_btn.setFixedWidth(38)
         self.go_btn.clicked.connect(self.navigate_to_input)
 
         nav_row.addWidget(self.back_btn)
@@ -117,7 +123,8 @@ class NousEmbeddedBrowser(QWidget):
 
         for title, target in pills:
             btn = QPushButton(title)
-            btn.setStyleSheet("font-size: 11px; padding: 2px 6px;")
+            btn.setProperty("class", "actionButton")
+            btn.setStyleSheet("font-size: 11px; padding: 3px 8px; border-radius: 12px;")
             btn.clicked.connect(lambda _, t=target: self.open_pill_target(t))
             pills_row.addWidget(btn)
 

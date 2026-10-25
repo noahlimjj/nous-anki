@@ -25,6 +25,7 @@ from .notes import NotesManager
 from .settings_dialog import SettingsDialog
 from .sound import NousSoundPlayer
 from .sync import NousSyncService
+from .theme import ensure_fonts_loaded
 
 ADDON_NAME = "nous_anki"
 dock_widget: Any = None
@@ -146,14 +147,7 @@ def on_review_finished():
 
 
 def load_fonts():
-    if not QFontDatabase:
-        return
-    fonts_dir = os.path.join(os.path.dirname(__file__), "fonts")
-    if os.path.isdir(fonts_dir):
-        for font_file in ["satoshi-300.woff2", "satoshi-400.woff2", "satoshi-500.woff2", "satoshi-700.woff2"]:
-            fpath = os.path.join(fonts_dir, font_file)
-            if os.path.exists(fpath):
-                QFontDatabase.addApplicationFont(fpath)
+    ensure_fonts_loaded()
 
 
 def setup_addon():

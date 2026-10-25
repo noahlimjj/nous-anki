@@ -71,6 +71,7 @@ except ImportError:
 
 from .sound import NousSoundPlayer
 from .sync import NousSyncService, _iso_from_timestamp, _iso_now
+from .theme import NOUS_STYLESHEET, ensure_fonts_loaded
 
 
 class NousTimerWidget(QFrame):
@@ -92,28 +93,69 @@ class NousTimerWidget(QFrame):
         self.qtimer.timeout.connect(self._on_tick)
 
     def setup_ui(self):
+        ensure_fonts_loaded()
+        self.setProperty("class", "timerCard")
         self.setStyleSheet("""
         QFrame {
             background-color: #ffffff;
             border: 1px solid #ebe8f3;
-            border-radius: 14px;
+            border-radius: 16px;
             padding: 10px;
         }
         QLabel.timeDisplay {
-            font-size: 32px;
+            font-size: 34px;
             font-weight: 300;
             font-family: "Satoshi", sans-serif;
             color: #363f51;
-            letter-spacing: 0.04em;
+            letter-spacing: -0.02em;
         }
         QComboBox {
             font-family: "Satoshi", sans-serif;
+            font-size: 11px;
+            font-weight: 500;
+            background-color: #f1eef8;
+            color: #5f5390;
+            border: 1px solid #e2ddf0;
+            border-radius: 14px;
+            padding: 5px 26px 5px 12px;
+            min-height: 18px;
+        }
+        QComboBox:hover {
+            background-color: #eae5f5;
+            border-color: #8B7FB8;
+        }
+        QComboBox::drop-down {
+            subcontrol-origin: padding;
+            subcontrol-position: top right;
+            width: 20px;
+            border: none;
+        }
+        QComboBox::down-arrow {
+            image: none;
+            width: 0;
+            height: 0;
+            border-left: 4px solid transparent;
+            border-right: 4px solid transparent;
+            border-top: 5px solid #8B7FB8;
+            margin-right: 6px;
+        }
+        QComboBox QAbstractItemView {
+            background-color: #ffffff;
             border: 1px solid #ebe8f3;
             border-radius: 12px;
-            padding: 3px 8px;
-            font-size: 11px;
-            color: #5f5390;
+            padding: 4px;
+            selection-background-color: #f1eef8;
+            selection-color: #5f5390;
+            color: #363f51;
+            outline: none;
+        }
+        QComboBox QAbstractItemView::item {
+            padding: 5px 8px;
+            border-radius: 8px;
+        }
+        QComboBox QAbstractItemView::item:selected {
             background-color: #f1eef8;
+            color: #5f5390;
         }
         """)
 
@@ -124,12 +166,20 @@ class NousTimerWidget(QFrame):
         # Header: Mode selector + Mute toggle
         top_row = QHBoxLayout()
         self.mode_combo = QComboBox()
+        try:
+            from PyQt6.QtWidgets import QListView
+            self.mode_combo.setView(QListView())
+        except Exception:
+            pass
+        if hasattr(Qt, "CursorShape"):
+            self.mode_combo.setCursor(Qt.CursorShape.PointingHandCursor)
+
         self.mode_combo.addItems(["Stopwatch", "25m Focus", "45m Focus", "60m Focus"])
         self.mode_combo.currentIndexChanged.connect(self._on_mode_changed)
 
         self.sound_btn = QPushButton("🔊")
         self.sound_btn.setFixedWidth(32)
-        self.sound_btn.setStyleSheet("border: 1px solid #ebe8f3; border-radius: 12px; background: #ffffff;")
+        self.sound_btn.setStyleSheet("border: 1px solid #ebe8f3; border-radius: 12px; background: #ffffff; font-size: 12px;")
         self.sound_btn.setToolTip("Toggle sound effects")
         self.sound_btn.clicked.connect(self._toggle_sound)
 
@@ -149,11 +199,11 @@ class NousTimerWidget(QFrame):
         ctrl_row.setSpacing(6)
 
         self.start_btn = QPushButton("▶ Start")
-        self.start_btn.setStyleSheet("background-color: #5FA8A3; color: white; font-family: 'Satoshi', sans-serif; font-weight: 500; border-radius: 16px; padding: 5px 14px; border: none;")
+        self.start_btn.setStyleSheet("background-color: #5FA8A3; color: white; font-family: 'Satoshi', sans-serif; font-weight: 500; font-size: 12px; border-radius: 15px; padding: 6px 14px; border: none;")
         self.start_btn.clicked.connect(self.toggle_start_pause)
 
         self.stop_btn = QPushButton("⏹ Stop & Sync")
-        self.stop_btn.setStyleSheet("background-color: #f1eef8; color: #5f5390; font-family: 'Satoshi', sans-serif; font-weight: 500; border: 1px solid #e2ddf0; border-radius: 16px; padding: 5px 12px;")
+        self.stop_btn.setStyleSheet("background-color: #f1eef8; color: #5f5390; font-family: 'Satoshi', sans-serif; font-weight: 500; font-size: 11px; border: 1px solid #e2ddf0; border-radius: 15px; padding: 6px 12px;")
         self.stop_btn.clicked.connect(self.stop_and_sync)
 
         ctrl_row.addWidget(self.start_btn)
@@ -163,7 +213,7 @@ class NousTimerWidget(QFrame):
         # Status text
         self.timer_status = QLabel("Ready to focus")
         self.timer_status.setAlignment(Qt.AlignmentFlag.AlignCenter if hasattr(Qt, "AlignmentFlag") else Qt.AlignCenter)
-        self.timer_status.setStyleSheet("font-size: 11px; color: #6b7280;")
+        self.timer_status.setStyleSheet("font-size: 11px; color: #7d8ca8; font-weight: 500; font-family: 'Satoshi', sans-serif;")
         layout.addWidget(self.timer_status)
 
     def _on_mode_changed(self, idx: int):
@@ -211,18 +261,18 @@ class NousTimerWidget(QFrame):
             if self.start_timestamp is None:
                 self.start_timestamp = time.time()
             self.start_btn.setText("⏸ Pause")
-            self.start_btn.setStyleSheet("background-color: #f59e0b; color: white; font-weight: bold; border-radius: 6px; padding: 5px 12px;")
+            self.start_btn.setStyleSheet("background-color: #8B7FB8; color: white; font-family: 'Satoshi', sans-serif; font-weight: 500; font-size: 12px; border-radius: 15px; padding: 6px 14px; border: none;")
             self.timer_status.setText("Focusing...")
-            self.timer_status.setStyleSheet("font-size: 11px; color: #10b981; font-weight: 600;")
+            self.timer_status.setStyleSheet("font-size: 11px; color: #5FA8A3; font-weight: 600; font-family: 'Satoshi', sans-serif;")
             self.sound.play_start()
             self.qtimer.start(1000)
         else:
             # PAUSE
             self.running = False
             self.start_btn.setText("▶ Resume")
-            self.start_btn.setStyleSheet("background-color: #10b981; color: white; font-weight: bold; border-radius: 6px; padding: 5px 12px;")
+            self.start_btn.setStyleSheet("background-color: #5FA8A3; color: white; font-family: 'Satoshi', sans-serif; font-weight: 500; font-size: 12px; border-radius: 15px; padding: 6px 14px; border: none;")
             self.timer_status.setText("Paused")
-            self.timer_status.setStyleSheet("font-size: 11px; color: #f59e0b;")
+            self.timer_status.setStyleSheet("font-size: 11px; color: #8B7FB8; font-family: 'Satoshi', sans-serif;")
             self.qtimer.stop()
 
     def _on_tick(self):
@@ -253,11 +303,11 @@ class NousTimerWidget(QFrame):
 
         # Reset button states
         self.start_btn.setText("▶ Start")
-        self.start_btn.setStyleSheet("background-color: #10b981; color: white; font-weight: bold; border-radius: 6px; padding: 5px 12px;")
+        self.start_btn.setStyleSheet("background-color: #5FA8A3; color: white; font-family: 'Satoshi', sans-serif; font-weight: 500; font-size: 12px; border-radius: 15px; padding: 6px 14px; border: none;")
 
         if duration_sec < 5:
             self.timer_status.setText("Session too short to sync (<5s)")
-            self.timer_status.setStyleSheet("font-size: 11px; color: #9ca3af;")
+            self.timer_status.setStyleSheet("font-size: 11px; color: #7d8ca8; font-family: 'Satoshi', sans-serif;")
             self._on_mode_changed(self.mode_combo.currentIndex())
             self.start_timestamp = None
             return
@@ -280,14 +330,14 @@ class NousTimerWidget(QFrame):
         }
 
         self.timer_status.setText(f"⏳ Syncing {self._format_time(duration_sec)} to Nous...")
-        self.timer_status.setStyleSheet("font-size: 11px; color: #3b82f6; font-weight: 600;")
+        self.timer_status.setStyleSheet("font-size: 11px; color: #8B7FB8; font-weight: 600; font-family: 'Satoshi', sans-serif;")
 
         # Submit session
         self.sync_service.enqueue_session(session)
 
         def on_done(ok: bool, count: int):
             self.timer_status.setText(f"🎉 Synced {self._format_time(duration_sec)} to Habit Dashboard!")
-            self.timer_status.setStyleSheet("font-size: 11px; color: #10b981; font-weight: 700;")
+            self.timer_status.setStyleSheet("font-size: 11px; color: #5FA8A3; font-weight: 600; font-family: 'Satoshi', sans-serif;")
             if self.on_synced:
                 self.on_synced()
 

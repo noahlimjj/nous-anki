@@ -30,6 +30,7 @@ except ImportError:
     mw = None
 
 from .sync import NousSyncService
+from .theme import NOUS_STYLESHEET, ensure_fonts_loaded
 
 
 class SettingsDialog(QDialog):
@@ -43,52 +44,8 @@ class SettingsDialog(QDialog):
         self.setup_ui()
 
     def setup_ui(self):
-        self.setStyleSheet("""
-        QDialog {
-            background-color: #f8f9fb;
-            font-family: "Satoshi", -apple-system, BlinkMacSystemFont, sans-serif;
-            color: #363f51;
-        }
-        QGroupBox {
-            font-family: "Satoshi", sans-serif;
-            font-weight: 500;
-            font-size: 13px;
-            color: #5f5390;
-            border: 1px solid #ebe8f3;
-            border-radius: 14px;
-            margin-top: 12px;
-            padding: 16px 12px 12px 12px;
-            background-color: #ffffff;
-        }
-        QGroupBox::title {
-            subcontrol-origin: margin;
-            left: 14px;
-            padding: 0 6px;
-        }
-        QLineEdit, QComboBox, QSpinBox {
-            background-color: #ffffff;
-            border: 1px solid #ebe8f3;
-            border-radius: 8px;
-            padding: 6px;
-            color: #363f51;
-            font-family: "Satoshi", sans-serif;
-        }
-        QLineEdit:focus, QComboBox:focus, QSpinBox:focus {
-            border: 1px solid #8B7FB8;
-        }
-        QPushButton {
-            border-radius: 14px;
-            padding: 5px 14px;
-            font-family: "Satoshi", sans-serif;
-            font-weight: 500;
-            background-color: #f1eef8;
-            color: #5f5390;
-            border: 1px solid #e2ddf0;
-        }
-        QPushButton:hover {
-            background-color: #e6e0f3;
-        }
-        """)
+        ensure_fonts_loaded()
+        self.setStyleSheet(NOUS_STYLESHEET)
 
         layout = QVBoxLayout(self)
         layout.setSpacing(14)
@@ -137,26 +94,44 @@ class SettingsDialog(QDialog):
         ai_form = QFormLayout(ai_group)
 
         self.ai_provider_combo = QComboBox()
-        self.ai_provider_combo.addItems(["OpenAI", "Gemini", "Perplexity", "Custom (OpenAI-compatible)"])
-        current_prov = self.config.get("ai_provider", "openai").lower()
+        try:
+            from PyQt6.QtWidgets import QListView
+            self.ai_provider_combo.setView(QListView())
+        except Exception:
+            pass
+        if hasattr(Qt, "CursorShape"):
+            self.ai_provider_combo.setCursor(Qt.CursorShape.PointingHandCursor)
+
+        self.ai_provider_combo.addItems(["Gemini (Free Tier)", "OpenAI", "Claude", "Perplexity", "Custom (OpenAI-compatible)"])
+        current_prov = self.config.get("ai_provider", "gemini").lower()
         if "gemini" in current_prov:
+            self.ai_provider_combo.setCurrentIndex(0)
+        elif "openai" in current_prov:
             self.ai_provider_combo.setCurrentIndex(1)
-        elif "perplexity" in current_prov:
+        elif "claude" in current_prov or "anthropic" in current_prov:
             self.ai_provider_combo.setCurrentIndex(2)
-        elif "custom" in current_prov:
+        elif "perplexity" in current_prov:
             self.ai_provider_combo.setCurrentIndex(3)
         else:
-            self.ai_provider_combo.setCurrentIndex(0)
+            self.ai_provider_combo.setCurrentIndex(4)
 
         ai_form.addRow("Provider:", self.ai_provider_combo)
 
+        # Gemini Free key helper row
+        gemini_help_row = QHBoxLayout()
+        self.gemini_key_link_btn = QPushButton("🔑 Get Free Gemini API Key (Google AI Studio)")
+        self.gemini_key_link_btn.setStyleSheet("font-size: 11px; padding: 4px 10px; background-color: #f1eef8; color: #5f5390; border: 1px solid #e2ddf0; border-radius: 12px;")
+        self.gemini_key_link_btn.clicked.connect(lambda: __import__('webbrowser').open("https://aistudio.google.com/app/apikey"))
+        gemini_help_row.addWidget(self.gemini_key_link_btn)
+        ai_form.addRow("", gemini_help_row)
+
         self.api_key_input = QLineEdit(self.config.get("ai_api_key", ""))
         self.api_key_input.setEchoMode(QLineEdit.EchoMode.Password)
-        self.api_key_input.setPlaceholderText("sk-... or AIzaSy...")
+        self.api_key_input.setPlaceholderText("AIzaSy... (Gemini) or sk-... (OpenAI)")
         ai_form.addRow("API Key:", self.api_key_input)
 
-        self.ai_model_input = QLineEdit(self.config.get("ai_model", ""))
-        self.ai_model_input.setPlaceholderText("gpt-4o-mini / gemini-2.5-flash / sonar")
+        self.ai_model_input = QLineEdit(self.config.get("ai_model", "gemini-2.5-flash"))
+        self.ai_model_input.setPlaceholderText("gemini-2.5-flash / gpt-4o-mini / sonar")
         ai_form.addRow("Model Name:", self.ai_model_input)
 
         self.ai_base_url_input = QLineEdit(self.config.get("ai_base_url", ""))
@@ -170,11 +145,14 @@ class SettingsDialog(QDialog):
         btn_row.addStretch()
 
         self.cancel_btn = QPushButton("Cancel")
+        self.cancel_btn.setProperty("class", "actionButton")
+        self.cancel_btn.setStyleSheet("background-color: #f1eef8; color: #5f5390; font-family: 'Satoshi', sans-serif; font-weight: 500; font-size: 11px; border: 1px solid #e2ddf0; border-radius: 15px; padding: 6px 16px;")
         self.cancel_btn.clicked.connect(self.reject)
         btn_row.addWidget(self.cancel_btn)
 
         self.save_btn = QPushButton("Save Settings")
-        self.save_btn.setStyleSheet("background-color: #8b5cf6; color: white; font-weight: bold; padding: 6px 16px; border-radius: 6px;")
+        self.save_btn.setProperty("class", "primaryButton")
+        self.save_btn.setStyleSheet("background-color: #8B7FB8; color: white; font-family: 'Satoshi', sans-serif; font-weight: 500; font-size: 12px; padding: 6px 18px; border-radius: 15px; border: none;")
         self.save_btn.clicked.connect(self.save_and_close)
         btn_row.addWidget(self.save_btn)
 
@@ -208,12 +186,13 @@ class SettingsDialog(QDialog):
 
     def save_and_close(self):
         provider_map = {
-            0: "openai",
-            1: "gemini",
-            2: "perplexity",
-            3: "custom"
+            0: "gemini",
+            1: "openai",
+            2: "anthropic",
+            3: "perplexity",
+            4: "custom"
         }
-        chosen_provider = provider_map.get(self.ai_provider_combo.currentIndex(), "openai")
+        chosen_provider = provider_map.get(self.ai_provider_combo.currentIndex(), "gemini")
 
         updated_config = {
             "nous_email": self.email_input.text().strip(),
