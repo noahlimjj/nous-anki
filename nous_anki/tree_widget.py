@@ -2,6 +2,7 @@
 Nous Tree Widget
 Provides animated, authentic Nous tree visualization with sky-to-earth gradient,
 drifting clouds, glowing sun, real-time sway animation, and growth badges.
+Rendered entirely via native Qt QPainter and QSvgRenderer with zero WebEngine overhead.
 """
 
 import math
@@ -12,23 +13,72 @@ from typing import Optional
 
 try:
     from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLabel
-    from PyQt6.QtCore import Qt, QTimer, QRectF, QUrl
-    from PyQt6.QtGui import QPainter, QPixmap, QColor, QLinearGradient, QBrush, QFont, QPainterPath
+    from PyQt6.QtCore import Qt, QTimer, QRectF
+    from PyQt6.QtGui import QPainter, QColor, QLinearGradient, QBrush, QFont, QPainterPath
     from PyQt6.QtSvg import QSvgRenderer
-    from PyQt6.QtWebEngineWidgets import QWebEngineView
 except ImportError:
     try:
         from aqt.qt import (
-            QWidget, QVBoxLayout, QLabel, Qt, QTimer, QRectF, QUrl,
-            QPainter, QPixmap, QColor, QLinearGradient, QBrush, QFont, QPainterPath
+            QWidget, QVBoxLayout, QLabel, Qt, QTimer, QRectF,
+            QPainter, QColor, QLinearGradient, QBrush, QFont, QPainterPath
         )
         from PyQt6.QtSvg import QSvgRenderer
-        from PyQt6.QtWebEngineWidgets import QWebEngineView
     except ImportError:
         class QWidget:
             def __init__(self, *args, **kwargs): pass
             def update(self): pass
-        QWebEngineView = None
+            def setFixedHeight(self, h): pass
+            def width(self): return 300
+            def height(self): return 190
+        class QVBoxLayout:
+            def __init__(self, *args, **kwargs): pass
+            def setContentsMargins(self, *args): pass
+        class QLabel: pass
+        class Qt:
+            class PenStyle:
+                NoPen = None
+            class AlignmentFlag:
+                AlignCenter = None
+        class QTimer:
+            def __init__(self, *args): pass
+            def start(self, *args): pass
+            timeout = None
+        class QRectF:
+            def __init__(self, *args): pass
+        class QPainter:
+            class RenderHint:
+                Antialiasing = 1
+            def __init__(self, *args): pass
+            def setRenderHint(self, *args): pass
+            def setClipPath(self, *args): pass
+            def fillRect(self, *args): pass
+            def setPen(self, *args): pass
+            def setBrush(self, *args): pass
+            def drawEllipse(self, *args): pass
+            def drawRoundedRect(self, *args): pass
+            def save(self): pass
+            def restore(self): pass
+            def translate(self, *args): pass
+            def rotate(self, *args): pass
+            def setFont(self, *args): pass
+            def drawText(self, *args): pass
+            def end(self): pass
+        class QColor:
+            def __init__(self, *args): pass
+        class QLinearGradient:
+            def __init__(self, *args): pass
+            def setColorAt(self, *args): pass
+        class QBrush:
+            def __init__(self, *args): pass
+        class QFont:
+            class Weight:
+                Normal = 400
+                Medium = 500
+                Bold = 700
+            def __init__(self, *args): pass
+        class QPainterPath:
+            def __init__(self): pass
+            def addRoundedRect(self, *args): pass
         QSvgRenderer = None
 
 from .tree_art import render_tree_svg_py
@@ -55,6 +105,7 @@ class NousTreeWidget(QWidget):
     Animated Tree Widget matching Nous web experience.
     Shows the natural sky-to-earth gradient, glowing sun, drifting clouds,
     live tree art with organic sway, and growth percentage pill badge.
+    Runs 100% natively via QPainter and QSvgRenderer.
     """
 
     def __init__(self, parent=None):
@@ -70,27 +121,16 @@ class NousTreeWidget(QWidget):
 
         self.setFixedHeight(190)
 
-        # Setup WebEngine view for live animated rendering if available
-        self.web_view = None
-        self.use_web = False
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-
-        html_path = os.path.join(os.path.dirname(__file__), "tree_scene.html")
-        if QWebEngineView and os.path.exists(html_path) and os.environ.get("QT_QPA_PLATFORM") != "offscreen":
-            try:
-                self.web_view = QWebEngineView(self)
-                self.web_view.page().setBackgroundColor(QColor(0, 0, 0, 0))
-                self.web_view.load(QUrl.fromLocalFile(html_path))
-                layout.addWidget(self.web_view)
-                self.use_web = True
-            except Exception:
-                self.use_web = False
+        # Initialize default tree SVG
+        self.set_tree(self.tree_id, self.pct, self.is_growing)
 
         # Native animation timer for sway & cloud drifting
         self.timer = QTimer(self)
-        self.timer.timeout.connect(self._on_tick)
-        self.timer.start(50)  # 20 FPS organic sway
+        try:
+            self.timer.timeout.connect(self._on_tick)
+            self.timer.start(50)  # 20 FPS organic sway
+        except Exception:
+            pass
 
     def set_tree(self, tree_id: str, pct: float, is_growing: bool = True):
         self.tree_id = tree_id or "oak"
@@ -100,15 +140,10 @@ class NousTreeWidget(QWidget):
 
         self.svg_data = get_tree_svg(self.tree_id, self.pct, self.is_growing)
         if QSvgRenderer and self.svg_data:
-            self.svg_renderer = QSvgRenderer(self.svg_data.encode("utf-8"))
-
-        if self.use_web and self.web_view:
             try:
-                self.web_view.page().runJavaScript(
-                    f"if (typeof window.updateTree === 'function') window.updateTree('{self.tree_id}', {self.pct}, {str(self.is_growing).lower()});"
-                )
+                self.svg_renderer = QSvgRenderer(self.svg_data.encode("utf-8"))
             except Exception:
-                pass
+                self.svg_renderer = None
 
         self.update()
 
@@ -117,17 +152,13 @@ class NousTreeWidget(QWidget):
         self.cloud_offset += 0.2
         if self.cloud_offset > 360.0:
             self.cloud_offset = -40.0
-
-        if not self.use_web:
-            self.update()
+        self.update()
 
     def paintEvent(self, event):
-        """Native Qt painter fallback / screenshot renderer."""
-        if self.use_web and os.environ.get("QT_QPA_PLATFORM") != "offscreen":
-            return super().paintEvent(event)
-
+        """Native Qt painter rendering sky, sun, clouds, swaying SVG tree, and badges."""
         p = QPainter(self)
-        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        if hasattr(p, "setRenderHint") and hasattr(QPainter, "RenderHint"):
+            p.setRenderHint(QPainter.RenderHint.Antialiasing)
 
         w = self.width()
         h = self.height()
@@ -172,7 +203,7 @@ class NousTreeWidget(QWidget):
             p.drawRoundedRect(QRectF(c2_x, 42, 36, 11), 5, 5)
 
         # 5. Tree SVG with Organic Sway
-        if self.svg_renderer and self.svg_renderer.isValid():
+        if self.svg_renderer and hasattr(self.svg_renderer, "isValid") and self.svg_renderer.isValid():
             p.save()
             tree_w = min(w - 20, 240)
             tree_h = 175
@@ -199,7 +230,7 @@ class NousTreeWidget(QWidget):
         p.setPen(QColor("#ebe8f3"))
         p.drawRoundedRect(QRectF(badge_x, badge_y, badge_w, badge_h), 11, 11)
 
-        p.setFont(QFont("Satoshi", 9, QFont.Weight.Medium))
+        p.setFont(QFont("Satoshi", 9, QFont.Weight.Normal))
         p.setPen(QColor("#363f51"))
         p.drawText(QRectF(badge_x, badge_y, badge_w, badge_h), Qt.AlignmentFlag.AlignCenter, f"{self.pct:.1f}% grown")
 
@@ -213,7 +244,7 @@ class NousTreeWidget(QWidget):
             p.setPen(QColor("#ebe8f3"))
             p.drawRoundedRect(QRectF(grow_x, grow_y, grow_w, grow_h), 10, 10)
 
-            p.setFont(QFont("Satoshi", 8, QFont.Weight.Bold))
+            p.setFont(QFont("Satoshi", 8, QFont.Weight.Normal))
             p.setPen(QColor("#5FA8A3"))
             p.drawText(QRectF(grow_x, grow_y, grow_w, grow_h), Qt.AlignmentFlag.AlignCenter, "growing… 🌱")
 

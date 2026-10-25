@@ -406,8 +406,8 @@ class NousDockWidget(QDockWidget):
 
     def open_city_in_embedded_browser(self):
         city_url = self.config.get("nous_city_url", "https://nous.study/city")
-        self.browser_view.navigate(city_url)
         self.tabs.setCurrentIndex(1)  # switch to Browser tab
+        self.browser_view.navigate(city_url)
 
     def trigger_manual_sync(self):
         self.sync_status_label.setText("syncing to nous…")

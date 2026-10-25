@@ -40,19 +40,27 @@ def ensure_fonts_loaded():
         return
 
     try:
+        from PyQt6.QtWidgets import QApplication
         from PyQt6.QtGui import QFontDatabase
     except ImportError:
         try:
-            from aqt.qt import QFontDatabase
+            from aqt.qt import QApplication, QFontDatabase
         except ImportError:
             return
+
+    # Must have an active QApplication instance before registering fonts
+    if not QApplication.instance():
+        return
 
     fonts_dir = os.path.join(os.path.dirname(__file__), "fonts")
     if os.path.isdir(fonts_dir):
         # Register TTF first, then WOFF2
         for pattern in ["*.ttf", "*.woff2"]:
             for fpath in sorted(glob.glob(os.path.join(fonts_dir, pattern))):
-                QFontDatabase.addApplicationFont(fpath)
+                try:
+                    QFontDatabase.addApplicationFont(fpath)
+                except Exception:
+                    pass
 
     _FONTS_INITIALIZED = True
 
