@@ -101,6 +101,10 @@ class NousEmbeddedBrowser(QWidget):
 
         return self._web_view
 
+    def ensure_loaded(self):
+        """Explicitly ensures WebEngine view is created."""
+        return self.web_view
+
     def setup_ui(self):
         ensure_fonts_loaded()
         layout = QVBoxLayout(self)
