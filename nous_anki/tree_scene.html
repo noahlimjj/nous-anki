@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+    background: transparent;
+    overflow: hidden;
+    font-family: "Satoshi", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    user-select: none;
+    -webkit-user-select: none;
+}
+.tree-scene {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    border-radius: 14px;
+    overflow: hidden;
+    background: linear-gradient(to bottom, #e0f2fe 0%, #bae6fd 40%, #a7f3d0 70%, #86efac 100%);
+    box-shadow: inset 0 2px 8px rgba(0,0,0,0.06);
+}
+.tree-scene.night {
+    background: linear-gradient(to bottom, #1e1b4b 0%, #312e81 45%, #1e3a5f 75%, #14532d 100%);
+}
+/* Sun / Moon */
+.tree-sun {
+    position: absolute;
+    top: 14px;
+    left: 18px;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: radial-gradient(circle, #FEF9C3 0%, #FDE68A 55%, rgba(253,230,138,0) 72%);
+    opacity: 0.9;
+    pointer-events: none;
+}
+.tree-scene.night .tree-sun {
+    background: #FEF3C7;
+    box-shadow: inset -7px -3px 0 0 #FDE68A, 0 0 16px rgba(254,243,199,0.5);
+    opacity: 0.95;
+    width: 26px;
+    height: 26px;
+}
+/* Clouds */
+.tree-cloud {
+    position: absolute;
+    pointer-events: none;
+    animation: treeCloud 40s linear infinite;
+}
+@keyframes treeCloud {
+    from { transform: translateX(-30px); }
+    50% { transform: translateX(30px); }
+    to { transform: translateX(-30px); }
+}
+/* Badges */
+.growth-badge {
+    position: absolute;
+    top: 10px;
+    right: 12px;
+    background: rgba(255, 255, 255, 0.92);
+    backdrop-filter: blur(4px);
+    color: #4a7c2c;
+    border-radius: 12px;
+    padding: 3px 9px;
+    font-size: 11px;
+    font-weight: 500;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    z-index: 2;
+}
+.growing-badge {
+    position: absolute;
+    bottom: 10px;
+    left: 12px;
+    background: rgba(255, 255, 255, 0.92);
+    backdrop-filter: blur(4px);
+    color: #5FA8A3;
+    border-radius: 10px;
+    padding: 3px 8px;
+    font-size: 10px;
+    font-weight: 600;
+    box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+    animation: pulse 2.2s infinite ease-in-out;
+    z-index: 2;
+    display: none;
+}
+.growing-badge.active {
+    display: block;
+}
+@keyframes pulse {
+    0%, 100% { opacity: 0.7; transform: scale(0.97); }
+    50% { opacity: 1; transform: scale(1.03); }
+}
+/* Authentic Nous Tree Animations */
+.tree-branch { animation: treeFadeIn 1.2s ease-out both; }
+.tree-leaf { transform-box: fill-box; transform-origin: center; animation: treeLeafIn 1.4s ease-out both; }
+.tree-sway { transform-box: view-box; transform-origin: 100px 220px; animation: treeSway 6s ease-in-out infinite; }
+.tree-twinkle { transform-box: fill-box; transform-origin: center; animation: treeTwinkle 2.4s ease-in-out infinite; }
+.tree-fall { animation: treeFall 8.5s linear infinite; }
+.tree-glow { transform-box: fill-box; transform-origin: center; animation: treeGlow 3s ease-in-out infinite; }
+.tree-aurora { animation: treeAurora 9s ease-in-out infinite alternate; }
+@keyframes treeFadeIn { from { opacity: 0; } }
+@keyframes treeLeafIn { from { transform: scale(0); opacity: 0; } }
+@keyframes treeSway { 0%, 100% { transform: rotate(-1.4deg); } 50% { transform: rotate(1.4deg); } }
+@keyframes treeTwinkle { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.35; transform: scale(0.7); } }
+@keyframes treeFall { 0% { transform: translate(0, -14px) rotate(0deg); opacity: 0; } 15% { opacity: 1; } 50% { transform: translate(6px, 8px) rotate(90deg); } 85% { opacity: 1; } 100% { transform: translate(-2px, 30px) rotate(200deg); opacity: 0; } }
+@keyframes treeGlow { 0%, 100% { opacity: 0.55; transform: scale(0.92); } 50% { opacity: 1; transform: scale(1.05); } }
+@keyframes treeAurora { 0% { transform: translateX(-5px) skewX(-3deg); opacity: 0.7; } 50% { opacity: 1; } 100% { transform: translateX(5px) skewX(3deg); opacity: 0.8; } }
+
+.tree-art-container {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    padding-bottom: 4px;
+}
+.tree-art-container svg {
+    width: 100%;
+    height: 100%;
+    max-height: 190px;
+    overflow: visible;
+}
+</style>
+<script src="tree_renderer.js"></script>
+</head>
+<body>
+<div id="treeScene" class="tree-scene">
+    <div id="treeSun" class="tree-sun"></div>
+    <svg class="tree-cloud" viewBox="0 0 60 24" width="48" style="top: 18px; left: 22%;">
+        <path d="M10,22 a8,8 0 0 1 2,-15 a11,11 0 0 1 20,-3 a9,9 0 0 1 16,6 a6,6 0 0 1 2,12 Z" fill="#FFFFFF"/>
+    </svg>
+    <svg class="tree-cloud" viewBox="0 0 60 24" width="36" style="top: 40px; left: 65%; animation-delay: -18s; opacity: 0.75;">
+        <path d="M10,22 a8,8 0 0 1 2,-15 a11,11 0 0 1 20,-3 a9,9 0 0 1 16,6 a6,6 0 0 1 2,12 Z" fill="#FFFFFF"/>
+    </svg>
+    <div id="growthBadge" class="growth-badge">0.0% grown</div>
+    <div id="growingBadge" class="growing-badge">growing… 🌱</div>
+    <div id="treeContainer" class="tree-art-container"></div>
+</div>
+<script>
+window.updateTree = function(treeId, pct, isGrowing) {
+    try {
+        if (typeof renderNousTreeSVG !== "function") {
+            console.error("renderNousTreeSVG not defined");
+            return;
+        }
+        const svg = renderNousTreeSVG(treeId, pct, !!isGrowing);
+        document.getElementById("treeContainer").innerHTML = svg;
+        const badge = document.getElementById("growthBadge");
+        badge.innerText = pct.toFixed(1) + "% grown";
+        const growing = document.getElementById("growingBadge");
+        if (isGrowing && pct < 100) {
+            growing.classList.add("active");
+        } else {
+            growing.classList.remove("active");
+        }
+        const look = (typeof TREE_LOOKS !== "undefined" && TREE_LOOKS[treeId]) || {};
+        const scene = document.getElementById("treeScene");
+        if (look.night) {
+            scene.classList.add("night");
+        } else {
+            scene.classList.remove("night");
+        }
+    } catch (e) {
+        console.error("updateTree error:", e);
+    }
+};
+</script>
+</body>
+</html>

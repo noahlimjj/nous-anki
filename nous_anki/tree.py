@@ -328,41 +328,19 @@ def progress(steps: List[Dict[str, Any]], growth_hours: float, boxes_opened: int
     }
 
 
-def generate_tree_svg(tree_id: str, pct: float = 100.0, size: int = 120) -> str:
-    """Generates a clean vector SVG for the current tree matching Nous aesthetic."""
-    color = TREE_COLORS.get(tree_id, "#4a7c2c")
-    tier = tier_of(tree_id)
-    tier_color = tier["color"]
-    h = max(15, min(100, int(pct)))
+from .tree_art import render_tree_svg_py
 
-    return f"""<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 110" width="{size}" height="{size}">
-  <defs>
-    <linearGradient id="treeGrad" x1="0%" y1="100%" x2="0%" y2="0%">
-      <stop offset="0%" stop-color="{color}" stop-opacity="0.8"/>
-      <stop offset="100%" stop-color="{color}" stop-opacity="1"/>
-    </linearGradient>
-    <filter id="softGlow" x="-20%" y="-20%" width="140%" height="140%">
-      <feGaussianBlur stdDeviation="3" result="blur"/>
-      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
-    </filter>
-  </defs>
-  <!-- Ground Mound -->
-  <ellipse cx="50" cy="98" rx="38" ry="7" fill="#2d3748" opacity="0.15" />
-  <ellipse cx="50" cy="97" rx="30" ry="5" fill="#4a5568" opacity="0.25" />
-  
-  <!-- Trunk -->
-  <path d="M47 96 L47 65 Q50 62 53 65 L53 96 Z" fill="#5A3E1B" />
-  
-  <!-- Canopy - Scales with Growth Percentage ({h}%) -->
-  <g transform="translate(50, 60) scale({h / 100.0}) translate(-50, -60)">
-    <circle cx="50" cy="50" r="28" fill="{color}" opacity="0.25" filter="url(#softGlow)"/>
-    <circle cx="42" cy="52" r="18" fill="{color}" opacity="0.9"/>
-    <circle cx="58" cy="52" r="18" fill="{color}" opacity="0.9"/>
-    <circle cx="50" cy="40" r="20" fill="url(#treeGrad)" />
-    <!-- Highlight Sparkle -->
-    <circle cx="45" cy="35" r="4" fill="#ffffff" opacity="0.4"/>
-  </g>
-  
-  <!-- Tier indicator dot -->
-  <circle cx="85" cy="15" r="6" fill="{tier_color}" stroke="#ffffff" stroke-width="1.5"/>
-</svg>"""
+
+def generate_tree_svg(tree_id: str, pct: float = 100.0, size: int = 120, is_growing: bool = True) -> str:
+    """Generates authentic Nous vector tree SVG matching Nous app algorithm."""
+    import os, subprocess
+    js_path = os.path.join(os.path.dirname(__file__), "tree_renderer.js")
+    if os.path.exists(js_path):
+        try:
+            code = f'const {{ renderNousTreeSVG }} = require("{js_path}"); console.log(renderNousTreeSVG("{tree_id}", {pct}, {str(is_growing).lower()}));'
+            res = subprocess.run(["node", "-e", code], capture_output=True, text=True, timeout=1.5)
+            if res.returncode == 0 and res.stdout.strip().startswith("<svg"):
+                return res.stdout.strip()
+        except Exception:
+            pass
+    return render_tree_svg_py(tree_id, pct, is_growing)

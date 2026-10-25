@@ -63,8 +63,8 @@ class TestTreePath(unittest.TestCase):
     def test_svg_generation(self):
         svg = tree.generate_tree_svg("oak", 50.0)
         self.assertIn("<svg", svg)
-        self.assertIn("treeGrad", svg)
-        self.assertIn("#4a7c2c", svg)
+        self.assertIn("tree-branch", svg)
+        self.assertIn("tree-leaf", svg)
 
 
 if __name__ == "__main__":

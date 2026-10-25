@@ -65,8 +65,8 @@ class TestNousAnkiAll(unittest.TestCase):
         cur_id = prog["current"]["id"]
         svg = tree.generate_tree_svg(cur_id, pct=prog["pct"])
         self.assertIn("<svg", svg)
-        self.assertIn("treeGrad", svg)
-        self.assertIn("Ground Mound", svg)
+        self.assertIn("tree-branch", svg)
+        self.assertIn("tree-leaf", svg)
 
     # 3. SOUND PLAYER & CHIME GENERATION
     def test_sound_effects(self):

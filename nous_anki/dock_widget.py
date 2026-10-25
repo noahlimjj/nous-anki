@@ -127,6 +127,7 @@ from .notes import NotesManager
 from .sound import NousSoundPlayer
 from .sync import NousSyncService
 from .timer_widget import NousTimerWidget
+from .tree_widget import NousTreeWidget
 from .theme import NOUS_STYLESHEET, ensure_fonts_loaded
 
 
@@ -178,12 +179,9 @@ class NousDockWidget(QDockWidget):
         name_tier_row.addWidget(self.tier_badge)
         tree_layout.addLayout(name_tier_row)
 
-        self.tree_svg_view = QTextBrowser()
-        self.tree_svg_view.setFixedHeight(105)
-        self.tree_svg_view.setStyleSheet("border: none; background: transparent;")
-        self.tree_svg_view.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self.tree_svg_view.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        tree_layout.addWidget(self.tree_svg_view)
+        self.tree_view = NousTreeWidget(self)
+        self.tree_svg_view = self.tree_view
+        tree_layout.addWidget(self.tree_view)
 
         self.tree_progress = QProgressBar()
         self.tree_progress.setRange(0, 100)
@@ -397,11 +395,8 @@ class NousDockWidget(QDockWidget):
         self.overall_label.setText(f"{total_hours:.1f} hrs on Nous • {grown}/{total_trees} trees grown 🌲")
 
         cur_id = prog.get("current", {}).get("id", "oak") if prog.get("current") else "oak"
-        svg_code = tree.generate_tree_svg(cur_id, pct=pct, size=95)
-        html_content = f"""<html><body style="margin:0; padding:0; display:flex; justify-content:center; align-items:center; background:transparent;">
-        <center>{svg_code}</center>
-        </body></html>"""
-        self.tree_svg_view.setHtml(html_content)
+        is_focusing = getattr(self.timer_widget, "running", False)
+        self.tree_view.set_tree(cur_id, pct=pct, is_growing=is_focusing or (pct > 0 and pct < 100))
 
     def open_city_link(self):
         city_url = self.config.get("nous_city_url", "https://nous.study/city")
