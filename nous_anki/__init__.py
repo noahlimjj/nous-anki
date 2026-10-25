@@ -150,8 +150,67 @@ def load_fonts():
     ensure_fonts_loaded()
 
 
+_addon_initialized = False
+
+
+def on_top_toolbar_did_init_links(links, toolbar):
+    """Adds a small clean Nous logo & button to the top toolbar."""
+    try:
+        link = toolbar.create_link(
+            "nous_toggle",
+            """<span style="display:inline-flex;align-items:center;gap:4px;color:#8B7FB8;font-family:'Satoshi',sans-serif;font-weight:400;font-size:12px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" style="vertical-align:middle;margin-right:2px;"><circle cx="12" cy="12" r="9" stroke="#8B7FB8" stroke-width="2" stroke-dasharray="14 6"/><text x="12" y="16" text-anchor="middle" font-family="'Satoshi',sans-serif" font-size="11" font-weight="bold" fill="#8B7FB8">n</text></svg>nous</span>""",
+            toggle_dock,
+            tip="toggle nous sidebar (Ctrl+Shift+N)",
+            id="nous_toolbar_link"
+        )
+        links.append(link)
+    except Exception:
+        pass
+
+
+def on_deck_browser_will_render_content(deck_browser, content):
+    """Renders an authentic, minimal Nous badge on Anki's main deck browser page."""
+    try:
+        hours = 0.0
+        cur_tree = "tree"
+        if sync_service and sync_service.cached_state:
+            hours = float(sync_service.cached_state.get("totalHours", 0.0))
+        if dock_widget and hasattr(dock_widget, "tree_name_label"):
+            cur_tree = dock_widget.tree_name_label.text()
+
+        badge = f"""
+        <div style="margin: 24px auto 12px auto; max-width: 360px; padding: 9px 14px; background: #ffffff; border: 1px solid #ebe8f3; border-radius: 14px; display: flex; align-items: center; justify-content: space-between; font-family: 'Satoshi', -apple-system, sans-serif; font-size: 11px; box-shadow: 0 1px 3px rgba(0,0,0,0.02); cursor: pointer;" onclick="pycmd('nous_toggle');" title="click to toggle nous sidebar">
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                    <circle cx="12" cy="12" r="9" stroke="#8B7FB8" stroke-width="2" stroke-dasharray="14 6"/>
+                    <text x="12" y="16" text-anchor="middle" font-family="'Satoshi',sans-serif" font-size="12" font-weight="bold" fill="#8B7FB8">n</text>
+                </svg>
+                <span style="font-weight: 400; color: #363f51;">nous anki sync</span>
+                <span style="color: #7d8ca8; font-weight: 300;">·</span>
+                <span style="color: #5FA8A3; font-weight: 400;">{hours:.1f}h logged</span>
+            </div>
+            <span style="color: #5f5390; background-color: #f1eef8; border: 1px solid #e2ddf0; border-radius: 999px; padding: 2px 8px; font-size: 10px; font-weight: 400;">open sidebar →</span>
+        </div>
+        """
+        if hasattr(content, "stats"):
+            content.stats += badge
+    except Exception:
+        pass
+
+
+def on_webview_message(handled: tuple, message: str, context: Any):
+    """Handles bridge commands like pycmd('nous_toggle') from Anki webviews."""
+    if message == "nous_toggle":
+        toggle_dock()
+        return (True, None)
+    return handled
+
+
 def setup_addon():
-    global sync_service, notes_mgr, dock_widget
+    global _addon_initialized, sync_service, notes_mgr, dock_widget
+    if _addon_initialized:
+        return
+    _addon_initialized = True
 
     load_fonts()
     load_configuration()
@@ -175,23 +234,23 @@ def setup_addon():
         tools_menu = mw.form.menuTools
 
         # Settings action
-        settings_action = QAction("Nous Anki Settings...", mw)
+        settings_action = QAction("nous anki settings…", mw)
         settings_action.triggered.connect(open_settings_dialog)
         tools_menu.addAction(settings_action)
 
         # Toggle dock action
-        toggle_action = QAction("Toggle Nous Sidebar", mw)
+        toggle_action = QAction("toggle nous sidebar", mw)
         toggle_action.setShortcut(QKeySequence("Ctrl+Shift+N"))
         toggle_action.triggered.connect(toggle_dock)
         tools_menu.addAction(toggle_action)
 
         # Sync action
-        sync_action = QAction("Sync Hours to Nous", mw)
+        sync_action = QAction("sync hours to nous", mw)
         sync_action.triggered.connect(trigger_sync)
         tools_menu.addAction(sync_action)
 
         # City action
-        city_action = QAction("Visit Nous City 🏙️", mw)
+        city_action = QAction("visit nous city 🏙️", mw)
         city_action.triggered.connect(lambda: dock_widget.open_city_link() if dock_widget else None)
         tools_menu.addAction(city_action)
 
@@ -203,6 +262,12 @@ def setup_addon():
         gui_hooks.sync_will_start.append(on_review_finished)
 
 
-# Initialize when profile is loaded
+# Initialize hooks and startup
 if mw and gui_hooks:
     gui_hooks.profile_did_open.append(setup_addon)
+    gui_hooks.top_toolbar_did_init_links.append(on_top_toolbar_did_init_links)
+    gui_hooks.deck_browser_will_render_content.append(on_deck_browser_will_render_content)
+    gui_hooks.webview_did_receive_js_message.append(on_webview_message)
+    # If profile is already opened
+    if hasattr(mw, "pm") and mw.pm and getattr(mw.pm, "name", None):
+        setup_addon()
