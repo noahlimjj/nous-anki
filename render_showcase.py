@@ -54,8 +54,8 @@ def main():
     dock.show()
 
     # Pre-populate sample notes
-    dock.notes_edit.setText("• Primary vs secondary hemostasis mnemonics\n• Von Willebrand factor stabilizes Factor VIII\n• Auto-synced from Nous Anki")
-    dock.ai_result_view.setHtml("<div style='font-family: Satoshi; font-size: 11px; color: #363f51;'><b>Gemini 2.5 Flash:</b><br/>Von Willebrand disease is the most common inherited bleeding disorder, characterized by deficient or defective vWF.</div>")
+    dock.notes_edit.setText("• primary vs secondary hemostasis mnemonics\n• von willebrand factor stabilizes factor VIII\n• auto-synced from nous anki")
+    dock.ai_result_view.setHtml("<div style='font-family: Satoshi; font-size: 11px; color: #363f51;'><span style='color: #7c3aed; font-weight: 400;'>gemini 2.5 flash:</span><br/>von willebrand disease is the most common inherited bleeding disorder, characterized by deficient or defective vWF.</div>")
 
     app.processEvents()
 
@@ -83,16 +83,16 @@ def main():
     painter = QPainter(showcase)
     # Header title
     title_font = QFont("Satoshi", 18)
-    title_font.setWeight(QFont.Weight.Bold)
+    title_font.setWeight(QFont.Weight.Normal)
     painter.setFont(title_font)
     painter.setPen(QColor("#363f51"))
-    painter.drawText(30, 42, "Nous Anki Add-on — Authentic Satoshi & Soft Pill Design")
+    painter.drawText(30, 42, "nous anki add-on — authentic satoshi & soft pill design")
 
     subtitle_font = QFont("Satoshi", 11)
-    subtitle_font.setWeight(QFont.Weight.Normal)
+    subtitle_font.setWeight(QFont.Weight.Light)
     painter.setFont(subtitle_font)
     painter.setPen(QColor("#7d8ca8"))
-    painter.drawText(30, 62, "Full Nous color palette (#8B7FB8, #5FA8A3, #f1eef8), rounded pill dropdowns, and live tree growth")
+    painter.drawText(30, 62, "full nous color palette (#8b7fb8, #5fa8a3, #f1eef8), rounded pill dropdowns, and live tree growth")
 
     # Draw dock and settings pixmaps
     painter.drawPixmap(30, 75, dock_pix)

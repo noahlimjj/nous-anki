@@ -94,10 +94,10 @@ class NousEmbeddedBrowser(QWidget):
         self.reload_btn.clicked.connect(self.reload_page)
 
         self.url_input = QLineEdit()
-        self.url_input.setPlaceholderText("Enter URL or search medical terms...")
+        self.url_input.setPlaceholderText("enter url or search medical terms...")
         self.url_input.returnPressed.connect(self.navigate_to_input)
 
-        self.go_btn = QPushButton("Go")
+        self.go_btn = QPushButton("go")
         self.go_btn.setProperty("class", "primaryButton")
         self.go_btn.setFixedWidth(38)
         self.go_btn.clicked.connect(self.navigate_to_input)
@@ -114,17 +114,17 @@ class NousEmbeddedBrowser(QWidget):
         pills_row.setSpacing(4)
 
         pills = [
-            ("🏙️ City", "https://nous.study/city"),
-            ("Amboss", "https://next.amboss.com/us/search?q="),
-            ("Google", "https://www.google.com/search?q="),
-            ("PubMed", "https://pubmed.ncbi.nlm.nih.gov/?term="),
-            ("Wiki", "https://en.wikipedia.org/wiki/Special:Search?search="),
+            ("city 🏙️", "https://nous.study/city"),
+            ("amboss", "https://next.amboss.com/us/search?q="),
+            ("google", "https://www.google.com/search?q="),
+            ("pubmed", "https://pubmed.ncbi.nlm.nih.gov/?term="),
+            ("wiki", "https://en.wikipedia.org/wiki/Special:Search?search="),
         ]
 
         for title, target in pills:
             btn = QPushButton(title)
             btn.setProperty("class", "actionButton")
-            btn.setStyleSheet("font-size: 11px; padding: 3px 8px; border-radius: 12px;")
+            btn.setStyleSheet("font-size: 11px; font-weight: 400; padding: 3px 8px; border-radius: 12px;")
             btn.clicked.connect(lambda _, t=target: self.open_pill_target(t))
             pills_row.addWidget(btn)
 

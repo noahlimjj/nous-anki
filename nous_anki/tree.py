@@ -6,11 +6,11 @@ Matches tree-path.js and Nous web app exactly.
 from typing import Dict, List, Optional, Tuple, Any
 
 TIERS = [
-    {"id": "rare", "name": "Rare", "weight": 50, "color": "#3b82f6"},
-    {"id": "super-rare", "name": "Super Rare", "weight": 27, "color": "#8b5cf6"},
-    {"id": "epic", "name": "Epic", "weight": 14, "color": "#d946ef"},
-    {"id": "mythic", "name": "Mythic", "weight": 6, "color": "#ef4444"},
-    {"id": "legendary", "name": "Legendary", "weight": 3, "color": "#f59e0b"},
+    {"id": "rare", "name": "rare", "weight": 50, "color": "#2563eb", "bg": "#eff6ff", "border": "#bfdbfe"},
+    {"id": "super-rare", "name": "super rare", "weight": 27, "color": "#7c3aed", "bg": "#f5f3ff", "border": "#ddd6fe"},
+    {"id": "epic", "name": "epic", "weight": 14, "color": "#c026d3", "bg": "#fdf4ff", "border": "#f5d0fe"},
+    {"id": "mythic", "name": "mythic", "weight": 6, "color": "#dc2626", "bg": "#fef2f2", "border": "#fecaca"},
+    {"id": "legendary", "name": "legendary", "weight": 3, "color": "#b45309", "bg": "#fffbeb", "border": "#fde68a"},
 ]
 
 TIER_MIN_COLLECTED = {

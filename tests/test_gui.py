@@ -61,12 +61,12 @@ class TestNousAnkiGUI(unittest.TestCase):
         # Test start
         timer.toggle_start_pause()
         self.assertTrue(timer.running)
-        self.assertEqual(timer.start_btn.text(), "⏸ Pause")
+        self.assertEqual(timer.start_btn.text(), "⏸ pause")
 
         # Test pause
         timer.toggle_start_pause()
         self.assertFalse(timer.running)
-        self.assertEqual(timer.start_btn.text(), "▶ Resume")
+        self.assertEqual(timer.start_btn.text(), "▶ resume")
 
         # Test mode change to 25m Focus
         timer.mode_combo.setCurrentIndex(1)
@@ -78,12 +78,12 @@ class TestNousAnkiGUI(unittest.TestCase):
         dock = NousDockWidget(parent, self.sync_service, self.notes_mgr, self.sound_player, self.config)
         self.assertIsNotNone(dock)
         self.assertEqual(dock.tabs.count(), 3)
-        self.assertEqual(dock.tabs.tabText(0), "🤖 AI Q&A")
-        self.assertEqual(dock.tabs.tabText(1), "🌐 Browser")
-        self.assertEqual(dock.tabs.tabText(2), "📝 Notes")
+        self.assertEqual(dock.tabs.tabText(0), "ai")
+        self.assertEqual(dock.tabs.tabText(1), "browser")
+        self.assertEqual(dock.tabs.tabText(2), "notes")
 
         # Verify tree card populated
-        self.assertIn(dock.tree_name_label.text(), ["Oak", "Cherry Blossom", "Ancient Sakura", "Willow", "Bamboo Grove", "Pine"])
+        self.assertIn(dock.tree_name_label.text().lower(), ["oak", "cherry blossom", "ancient sakura", "willow", "bamboo grove", "pine"])
         self.assertGreater(dock.tree_progress.maximum(), 0)
 
     def test_embedded_browser_initialization(self):

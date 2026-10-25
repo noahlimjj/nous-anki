@@ -60,6 +60,7 @@ def ensure_fonts_loaded():
 NOUS_STYLESHEET = """
 * {
     font-family: "Satoshi", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-weight: 300;
 }
 
 QWidget {
@@ -87,9 +88,9 @@ QFrame.treeCard, QFrame.timerCard, QFrame.nousCard {
 /* TYPOGRAPHY */
 QLabel.treeName {
     font-size: 16px;
-    font-weight: 500;
+    font-weight: 300;
     color: #363f51;
-    letter-spacing: 0.01em;
+    letter-spacing: -0.01em;
 }
 
 QLabel.timeDisplay {
@@ -101,18 +102,17 @@ QLabel.timeDisplay {
 
 QLabel.subtitle {
     font-size: 11px;
-    font-weight: 500;
+    font-weight: 300;
     color: #7d8ca8;
 }
 
 QLabel.tierBadge {
     font-size: 10px;
-    font-weight: 600;
-    text-transform: uppercase;
-    color: #ffffff;
+    font-weight: 400;
+    text-transform: lowercase;
     border-radius: 10px;
     padding: 2px 8px;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.02em;
 }
 
 /* PROGRESS BAR */
@@ -121,7 +121,7 @@ QProgressBar {
     border-radius: 6px;
     text-align: center;
     font-size: 10px;
-    font-weight: 600;
+    font-weight: 400;
     height: 10px;
     background-color: #f1eef8;
     color: #5f5390;
@@ -136,12 +136,12 @@ QProgressBar::chunk {
 QPushButton.cityButton, QPushButton.tealButton {
     background-color: #5FA8A3;
     color: #ffffff;
-    font-weight: 500;
-    font-size: 12px;
-    border-radius: 15px;
-    padding: 6px 14px;
+    font-weight: 400;
+    font-size: 11px;
+    border-radius: 14px;
+    padding: 5px 13px;
     border: none;
-    letter-spacing: 0.01em;
+    letter-spacing: 0;
 }
 QPushButton.cityButton:hover, QPushButton.tealButton:hover {
     background-color: #4f9691;
@@ -153,12 +153,12 @@ QPushButton.cityButton:pressed, QPushButton.tealButton:pressed {
 QPushButton.primaryButton {
     background-color: #8B7FB8;
     color: #ffffff;
-    font-weight: 500;
+    font-weight: 400;
     font-size: 11px;
     border-radius: 14px;
     padding: 5px 13px;
     border: none;
-    letter-spacing: 0.01em;
+    letter-spacing: 0;
 }
 QPushButton.primaryButton:hover {
     background-color: #7b6fa6;
@@ -170,11 +170,11 @@ QPushButton.primaryButton:pressed {
 QPushButton.actionButton, QPushButton.secondaryButton {
     background-color: #f1eef8;
     color: #5f5390;
-    font-weight: 500;
+    font-weight: 400;
     font-size: 11px;
     border: 1px solid #e2ddf0;
     border-radius: 14px;
-    padding: 5px 12px;
+    padding: 4px 11px;
 }
 QPushButton.actionButton:hover, QPushButton.secondaryButton:hover {
     background-color: #eae5f5;
@@ -191,7 +191,7 @@ QPushButton.iconButton {
     border-radius: 12px;
     padding: 3px 8px;
     font-size: 11px;
-    font-weight: 500;
+    font-weight: 400;
 }
 QPushButton.iconButton:hover {
     background-color: #f1eef8;
@@ -203,11 +203,11 @@ QComboBox {
     background-color: #f1eef8;
     color: #5f5390;
     border: 1px solid #e2ddf0;
-    border-radius: 14px;
-    padding: 5px 26px 5px 12px;
+    border-radius: 13px;
+    padding: 4px 24px 4px 11px;
     min-height: 18px;
     font-size: 11px;
-    font-weight: 500;
+    font-weight: 400;
 }
 QComboBox:hover {
     background-color: #eae5f5;
@@ -219,10 +219,10 @@ QComboBox:focus {
 QComboBox::drop-down {
     subcontrol-origin: padding;
     subcontrol-position: top right;
-    width: 22px;
+    width: 20px;
     border-left: none;
-    border-top-right-radius: 14px;
-    border-bottom-right-radius: 14px;
+    border-top-right-radius: 13px;
+    border-bottom-right-radius: 13px;
 }
 QComboBox::down-arrow {
     image: none;
@@ -231,7 +231,7 @@ QComboBox::down-arrow {
     border-left: 4px solid transparent;
     border-right: 4px solid transparent;
     border-top: 5px solid #8B7FB8;
-    margin-right: 8px;
+    margin-right: 7px;
 }
 QComboBox::down-arrow:on {
     border-top: none;
@@ -245,12 +245,14 @@ QComboBox QAbstractItemView {
     selection-background-color: #f1eef8;
     selection-color: #5f5390;
     color: #363f51;
-    font-size: 12px;
+    font-size: 11px;
+    font-weight: 400;
     outline: none;
 }
 QComboBox QAbstractItemView::item {
-    padding: 6px 10px;
+    padding: 5px 8px;
     border-radius: 8px;
+    font-weight: 400;
 }
 QComboBox QAbstractItemView::item:hover {
     background-color: #f8f6fc;
@@ -269,6 +271,7 @@ QLineEdit {
     padding: 5px 12px;
     color: #363f51;
     font-size: 12px;
+    font-weight: 300;
 }
 QLineEdit:focus {
     border: 1.5px solid #8B7FB8;
@@ -281,6 +284,7 @@ QTextEdit, QTextBrowser {
     padding: 8px 10px;
     color: #363f51;
     font-size: 12px;
+    font-weight: 300;
 }
 QTextEdit:focus, QTextBrowser:focus {
     border: 1.5px solid #8B7FB8;
@@ -299,7 +303,7 @@ QTabBar {
 }
 QTabBar::tab {
     font-size: 11px;
-    font-weight: 500;
+    font-weight: 400;
     color: #7d8ca8;
     background-color: transparent;
     padding: 5px 12px;
@@ -316,13 +320,13 @@ QTabBar::tab:selected {
     color: #5f5390;
     background-color: #f1eef8;
     border: 1px solid #e2ddf0;
-    font-weight: 600;
+    font-weight: 400;
 }
 
 /* GROUP BOX & FORM */
 QGroupBox {
     font-size: 12px;
-    font-weight: 500;
+    font-weight: 400;
     color: #5f5390;
     border: 1px solid #ebe8f3;
     border-radius: 14px;
@@ -334,6 +338,7 @@ QGroupBox::title {
     subcontrol-origin: margin;
     left: 12px;
     padding: 0 4px;
+    font-weight: 400;
 }
 
 QSpinBox {
@@ -342,6 +347,7 @@ QSpinBox {
     border-radius: 12px;
     padding: 4px 8px;
     color: #363f51;
+    font-weight: 300;
 }
 QSpinBox:focus {
     border: 1.5px solid #8B7FB8;

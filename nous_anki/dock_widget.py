@@ -168,11 +168,11 @@ class NousDockWidget(QDockWidget):
         tree_layout.setSpacing(4)
 
         name_tier_row = QHBoxLayout()
-        self.tree_name_label = QLabel("Oak")
+        self.tree_name_label = QLabel("oak")
         self.tree_name_label.setProperty("class", "treeName")
-        self.tier_badge = QLabel("RARE")
+        self.tier_badge = QLabel("rare")
         self.tier_badge.setProperty("class", "tierBadge")
-        self.tier_badge.setStyleSheet("background-color: #3b82f6;")
+        self.tier_badge.setStyleSheet("background-color: #eff6ff; color: #2563eb; border: 1px solid #bfdbfe; border-radius: 999px; padding: 2px 8px; font-size: 10px; font-weight: 400;")
 
         name_tier_row.addWidget(self.tree_name_label)
         name_tier_row.addStretch()
@@ -189,20 +189,20 @@ class NousDockWidget(QDockWidget):
         tree_layout.addWidget(self.tree_progress)
 
         self.tree_caption_label = QLabel("0.0 / 1.0h")
-        self.tree_caption_label.setStyleSheet("font-size: 11px; color: #7d8ca8; font-weight: 500;")
+        self.tree_caption_label.setStyleSheet("font-size: 11px; color: #7d8ca8; font-weight: 300;")
         tree_layout.addWidget(self.tree_caption_label)
 
-        self.overall_label = QLabel("0.0 hrs on Nous • 0/26 trees grown")
-        self.overall_label.setStyleSheet("font-size: 11px; color: #363f51; font-weight: 500;")
+        self.overall_label = QLabel("0.0 hrs on nous · 0/26 trees grown")
+        self.overall_label.setStyleSheet("font-size: 11px; color: #7d8ca8; font-weight: 300;")
         tree_layout.addWidget(self.overall_label)
 
         city_row = QHBoxLayout()
-        self.city_btn = QPushButton("🏙️ Visit My City")
+        self.city_btn = QPushButton("visit my city 🏙️")
         self.city_btn.setProperty("class", "cityButton")
         self.city_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.city_btn.clicked.connect(self.open_city_link)
 
-        self.city_embed_btn = QPushButton("View in App")
+        self.city_embed_btn = QPushButton("view in app")
         self.city_embed_btn.setProperty("class", "actionButton")
         self.city_embed_btn.clicked.connect(self.open_city_in_embedded_browser)
 
@@ -232,8 +232,8 @@ class NousDockWidget(QDockWidget):
 
         # Model Selector Row
         model_row = QHBoxLayout()
-        model_label = QLabel("Model:")
-        model_label.setStyleSheet("font-size: 11px; font-weight: 500; color: #5f5390;")
+        model_label = QLabel("model:")
+        model_label.setStyleSheet("font-size: 11px; font-weight: 400; color: #5f5390;")
         self.model_combo = QComboBox()
         try:
             from PyQt6.QtWidgets import QListView
@@ -247,7 +247,7 @@ class NousDockWidget(QDockWidget):
             self.model_combo.addItem(label, userData=(prov, mname))
 
         self.custom_model_input = QLineEdit()
-        self.custom_model_input.setPlaceholderText("Any custom model (e.g. gpt-4o, claude-3-5-sonnet)...")
+        self.custom_model_input.setPlaceholderText("any custom model (e.g. gpt-4o, claude-3-5-sonnet)...")
         self.custom_model_input.hide()
         self.model_combo.currentIndexChanged.connect(self._on_model_combo_changed)
 
@@ -259,14 +259,14 @@ class NousDockWidget(QDockWidget):
         # Question input & Ask button
         q_row = QHBoxLayout()
         self.ai_input = QLineEdit()
-        self.ai_input.setPlaceholderText("Ask any question or explain card...")
+        self.ai_input.setPlaceholderText("ask any question or explain card...")
         self.ai_input.returnPressed.connect(self.run_ai_search)
 
-        self.ask_btn = QPushButton("Ask")
+        self.ask_btn = QPushButton("ask")
         self.ask_btn.setProperty("class", "primaryButton")
         self.ask_btn.clicked.connect(self.run_ai_search)
 
-        self.explain_card_btn = QPushButton("Explain Card")
+        self.explain_card_btn = QPushButton("explain card")
         self.explain_card_btn.setProperty("class", "actionButton")
         self.explain_card_btn.clicked.connect(self.explain_current_card)
 
@@ -277,16 +277,16 @@ class NousDockWidget(QDockWidget):
 
         # AI Result View
         self.ai_result_view = QTextBrowser()
-        self.ai_result_view.setPlaceholderText("AI explanations and answers appear here...")
+        self.ai_result_view.setPlaceholderText("ai explanations and answers appear here...")
         ai_layout.addWidget(self.ai_result_view)
 
         # Actions on AI response
         ai_act_row = QHBoxLayout()
-        self.copy_to_notes_btn = QPushButton("Copy to Notes")
+        self.copy_to_notes_btn = QPushButton("copy to notes")
         self.copy_to_notes_btn.setProperty("class", "actionButton")
         self.copy_to_notes_btn.clicked.connect(self.copy_search_to_notes)
 
-        self.add_to_card_btn = QPushButton("Add to Card")
+        self.add_to_card_btn = QPushButton("add to card")
         self.add_to_card_btn.setProperty("class", "actionButton")
         self.add_to_card_btn.clicked.connect(self.add_search_to_card)
 
@@ -294,11 +294,11 @@ class NousDockWidget(QDockWidget):
         ai_act_row.addWidget(self.add_to_card_btn)
         ai_layout.addLayout(ai_act_row)
 
-        self.tabs.addTab(ai_tab, "🤖 AI Q&A")
+        self.tabs.addTab(ai_tab, "ai")
 
         # --- TAB 2: EMBEDDED BROWSER ---
         self.browser_view = NousEmbeddedBrowser(self, home_url=self.config.get("nous_city_url", "https://nous.study/city"))
-        self.tabs.addTab(self.browser_view, "🌐 Browser")
+        self.tabs.addTab(self.browser_view, "browser")
 
         # --- TAB 3: NOTES ---
         notes_tab = QWidget()
@@ -307,17 +307,17 @@ class NousDockWidget(QDockWidget):
         notes_layout.setSpacing(6)
 
         self.notes_edit = QTextEdit()
-        self.notes_edit.setPlaceholderText("Study notes, mnemonics, scratchpad...")
+        self.notes_edit.setPlaceholderText("study notes, mnemonics, scratchpad...")
         self.notes_edit.setText(self.notes_mgr.load_scratchpad())
         self.notes_edit.textChanged.connect(self.on_notes_changed)
         notes_layout.addWidget(self.notes_edit)
 
         notes_btn_row = QHBoxLayout()
-        self.append_card_btn = QPushButton("Append to Current Card")
+        self.append_card_btn = QPushButton("append to card")
         self.append_card_btn.setProperty("class", "primaryButton")
         self.append_card_btn.clicked.connect(self.append_notes_to_active_card)
 
-        self.clear_notes_btn = QPushButton("Clear")
+        self.clear_notes_btn = QPushButton("clear")
         self.clear_notes_btn.setProperty("class", "actionButton")
         self.clear_notes_btn.clicked.connect(self.clear_notes)
 
@@ -325,18 +325,18 @@ class NousDockWidget(QDockWidget):
         notes_btn_row.addWidget(self.clear_notes_btn)
         notes_layout.addLayout(notes_btn_row)
 
-        self.tabs.addTab(notes_tab, "📝 Notes")
+        self.tabs.addTab(notes_tab, "notes")
 
         layout.addWidget(self.tabs)
 
         # Footer Sync Status Row
         footer_row = QHBoxLayout()
-        self.sync_status_label = QLabel("✨ Auto-syncing to Nous")
-        self.sync_status_label.setStyleSheet("font-size: 10px; color: #7d8ca8; font-weight: 500;")
+        self.sync_status_label = QLabel("✨ auto-syncing to nous")
+        self.sync_status_label.setStyleSheet("font-size: 10px; color: #7d8ca8; font-weight: 300;")
         footer_row.addWidget(self.sync_status_label)
         footer_row.addStretch()
 
-        self.manual_sync_btn = QPushButton("Sync")
+        self.manual_sync_btn = QPushButton("sync")
         self.manual_sync_btn.setProperty("class", "actionButton")
         self.manual_sync_btn.clicked.connect(self.trigger_manual_sync)
         footer_row.addWidget(self.manual_sync_btn)
@@ -374,10 +374,12 @@ class NousDockWidget(QDockWidget):
         steps = tree.plan(uid, state.get("treePath"))
         prog = tree.progress(steps, total_hours, boxes_opened)
 
-        cur_name = prog.get("current_name", "Oak")
+        cur_name = prog.get("current_name", "oak")
         cur_tier = prog.get("current_tier", {})
-        tier_name = cur_tier.get("name", "RARE")
-        tier_color = cur_tier.get("color", "#3b82f6")
+        tier_name = cur_tier.get("name", "rare")
+        tier_color = cur_tier.get("color", "#2563eb")
+        tier_bg = cur_tier.get("bg", "#eff6ff")
+        tier_border = cur_tier.get("border", "#bfdbfe")
         pct = prog.get("pct", 0.0)
         into = prog.get("into", 0.0)
         hours_req = prog.get("current", {}).get("hours", 1) if prog.get("current") else 1
@@ -385,14 +387,14 @@ class NousDockWidget(QDockWidget):
         grown = prog.get("grown", 0)
         total_trees = prog.get("total_trees", 26)
 
-        self.tree_name_label.setText(cur_name)
-        self.tier_badge.setText(tier_name.upper())
-        self.tier_badge.setStyleSheet(f"background-color: {tier_color}; color: #ffffff;")
+        self.tree_name_label.setText(cur_name.lower())
+        self.tier_badge.setText(tier_name.lower())
+        self.tier_badge.setStyleSheet(f"background-color: {tier_bg}; color: {tier_color}; border: 1px solid {tier_border}; border-radius: 999px; padding: 2px 8px; font-size: 10px; font-weight: 400;")
 
         self.tree_progress.setValue(int(pct))
         self.tree_progress.setFormat(f"{into:.1f} / {hours_req:.1f}h ({pct:.0f}%)")
         self.tree_caption_label.setText(f"{hours_left:.1f}h remaining to bloom")
-        self.overall_label.setText(f"{total_hours:.1f} hrs on Nous • {grown}/{total_trees} trees grown 🌲")
+        self.overall_label.setText(f"{total_hours:.1f} hrs on nous · {grown}/{total_trees} trees grown")
 
         cur_id = prog.get("current", {}).get("id", "oak") if prog.get("current") else "oak"
         is_focusing = getattr(self.timer_widget, "running", False)
@@ -408,14 +410,14 @@ class NousDockWidget(QDockWidget):
         self.tabs.setCurrentIndex(1)  # switch to Browser tab
 
     def trigger_manual_sync(self):
-        self.sync_status_label.setText("⏳ Syncing to Nous...")
+        self.sync_status_label.setText("syncing to nous…")
         habit = self.config.get("nous_habit_name", "Anki")
         def on_done(ok: bool, count: int):
             self.refresh_tree_display()
             if ok:
-                self.sync_status_label.setText("✅ Synced to Nous")
+                self.sync_status_label.setText("synced to nous")
             else:
-                self.sync_status_label.setText("⚠️ Sync failed")
+                self.sync_status_label.setText("sync failed")
         self.sync_service.process_and_sync(habit_name=habit, min_ms=1000, on_done=on_done)
 
     # ---------------- AI Q&A Logic ----------------
@@ -440,7 +442,7 @@ class NousDockWidget(QDockWidget):
 
         prov, model_name = self.get_selected_model_and_provider()
 
-        self.ai_result_view.setHtml(f"<i>Thinking with {model_name}...</i>")
+        self.ai_result_view.setHtml(f"<i>thinking with {model_name}…</i>")
         self.ask_btn.setEnabled(False)
 
         def on_result(res: Dict[str, Any]):
@@ -451,7 +453,7 @@ class NousDockWidget(QDockWidget):
                     p = res.get("provider", "AI")
                     m = res.get("model", model_name)
                     content = f"""<div style="font-family: sans-serif; font-size: 13px; line-height: 1.5; color: #1f2937;">
-                    <div style="font-size: 11px; color: #7c3aed; font-weight: 700; margin-bottom: 6px;">
+                    <div style="font-size: 11px; color: #7c3aed; font-weight: 400; margin-bottom: 6px;">
                         ✦ {p} ({m})
                     </div>
                     {ans}
@@ -459,7 +461,7 @@ class NousDockWidget(QDockWidget):
                     self.ai_result_view.setHtml(content)
                 else:
                     err = res.get("error", "Unknown error")
-                    self.ai_result_view.setHtml(f'<span style="color: #ef4444;">Error: {html.escape(err)}</span>')
+                    self.ai_result_view.setHtml(f'<span style="color: #ef4444;">error: {html.escape(err)}</span>')
 
             if mw and hasattr(mw, "taskman"):
                 mw.taskman.run_on_main(update)
@@ -481,14 +483,14 @@ class NousDockWidget(QDockWidget):
         if not text.strip():
             return
         if not self.current_card:
-            self.ai_result_view.setHtml("<span style='color: #d97706;'>⚠️ No active card to add to</span>")
+            self.ai_result_view.setHtml("<span style='color: #d97706;'>no active card to add to</span>")
             return
 
         ok = NotesManager.append_note_to_card(self.current_card, text)
         if ok:
-            self.ai_result_view.setHtml("<span style='color: #10b981; font-weight: bold;'>✅ Added explanation to card!</span>")
+            self.ai_result_view.setHtml("<span style='color: #10b981; font-weight: 400;'>added explanation to card</span>")
         else:
-            self.ai_result_view.setHtml("<span style='color: #ef4444;'>⚠️ Failed to update card note</span>")
+            self.ai_result_view.setHtml("<span style='color: #ef4444;'>failed to update card note</span>")
 
     # ---------------- Notes ----------------
 
@@ -501,8 +503,8 @@ class NousDockWidget(QDockWidget):
             return
         ok = NotesManager.append_note_to_card(self.current_card, text)
         if ok:
-            self.timer_widget.timer_status.setText("✅ Appended note to card!")
-            self.timer_widget.timer_status.setStyleSheet("font-size: 11px; color: #10b981;")
+            self.timer_widget.timer_status.setText("appended note to card")
+            self.timer_widget.timer_status.setStyleSheet("font-size: 11px; color: #10b981; font-weight: 400;")
 
     def clear_notes(self):
         self.notes_edit.clear()

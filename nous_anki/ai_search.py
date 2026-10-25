@@ -19,18 +19,15 @@ SYSTEM_STUDY_PROMPT = (
 )
 
 POPULAR_MODELS = [
-    ("OpenAI: GPT-4o-mini", "openai", "gpt-4o-mini"),
-    ("OpenAI: GPT-4o", "openai", "gpt-4o"),
-    ("OpenAI: o3-mini", "openai", "o3-mini"),
-    ("Gemini: 2.5 Flash", "gemini", "gemini-2.5-flash"),
-    ("Gemini: 1.5 Pro", "gemini", "gemini-1.5-pro"),
-    ("Anthropic: Claude 3.5 Sonnet", "anthropic", "claude-3-5-sonnet-20241022"),
-    ("Anthropic: Claude 3.5 Haiku", "anthropic", "claude-3-5-haiku-20241022"),
-    ("Perplexity: Sonar (Web Search)", "perplexity", "sonar"),
-    ("Perplexity: Sonar Pro", "perplexity", "sonar-pro"),
-    ("DeepSeek: DeepSeek-Chat", "openai", "deepseek-chat"),
-    ("Local / Ollama: Llama 3.3", "openai", "llama3.3"),
-    ("Custom Model...", "custom", "")
+    ("gemini 2.5 flash", "gemini", "gemini-2.5-flash"),
+    ("gpt-4o-mini", "openai", "gpt-4o-mini"),
+    ("gpt-4o", "openai", "gpt-4o"),
+    ("claude 3.5 haiku", "anthropic", "claude-3-5-haiku-20241022"),
+    ("claude 3.5 sonnet", "anthropic", "claude-3-5-sonnet-20241022"),
+    ("perplexity sonar", "perplexity", "sonar"),
+    ("deepseek chat", "openai", "deepseek-chat"),
+    ("local ollama", "openai", "llama3.3"),
+    ("custom model…", "custom", "")
 ]
 
 WEB_SEARCH_TEMPLATES = {
