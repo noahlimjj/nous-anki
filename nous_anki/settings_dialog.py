@@ -143,8 +143,8 @@ class SettingsDialog(QDialog):
         self.api_key_input.setPlaceholderText("AIzaSy... (gemini) or sk-... (openai)")
         ai_form.addRow("api key:", self.api_key_input)
 
-        self.ai_model_input = QLineEdit(self.config.get("ai_model", "gemini-2.5-flash"))
-        self.ai_model_input.setPlaceholderText("gemini-2.5-flash / gpt-4o-mini / sonar")
+        self.ai_model_input = QLineEdit(self.config.get("ai_model", "gemini-1.5-flash"))
+        self.ai_model_input.setPlaceholderText("gemini-1.5-flash / gpt-4o-mini / sonar")
         ai_form.addRow("model name:", self.ai_model_input)
 
         self.ai_base_url_input = QLineEdit(self.config.get("ai_base_url", ""))

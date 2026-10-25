@@ -75,10 +75,19 @@ class NotesManager:
             else:
                 anki_note[target_field] = formatted_entry
 
-            from aqt import mw
-            mw.col.update_note(anki_note)
-            if hasattr(mw.reviewer, "_redraw_current_card"):
-                mw.reviewer._redraw_current_card()
+            try:
+                from aqt import mw
+                if mw and getattr(mw, "col", None):
+                    mw.col.update_note(anki_note)
+                if mw and getattr(mw, "reviewer", None) and hasattr(mw.reviewer, "_redraw_current_card"):
+                    mw.reviewer._redraw_current_card()
+            except Exception:
+                pass
+            if hasattr(anki_note, "flush"):
+                try:
+                    anki_note.flush()
+                except Exception:
+                    pass
             return True
         except Exception as e:
             print(f"[NousAnki] Error appending note to card: {e}")

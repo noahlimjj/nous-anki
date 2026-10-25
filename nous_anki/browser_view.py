@@ -197,6 +197,10 @@ class NousEmbeddedBrowser(QWidget):
         if self._web_view is None:
             self.navigate(self.home_url)
 
+    def go_home(self):
+        """Navigates to the default home URL (e.g. Nous City)."""
+        self.navigate(self.home_url)
+
     def navigate(self, url_str: str):
         url_str = url_str.strip()
         if not url_str:
