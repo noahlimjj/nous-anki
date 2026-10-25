@@ -21,23 +21,104 @@ try:
     )
     from aqt import mw
 except ImportError:
-    class QWidget: pass
-    class QDockWidget: pass
-    class QVBoxLayout: pass
-    class QHBoxLayout: pass
-    class QLabel: pass
-    class QLineEdit: pass
-    class QTextEdit: pass
-    class QTextBrowser: pass
-    class QPushButton: pass
-    class QProgressBar: pass
-    class QTabWidget: pass
-    class QFrame: pass
-    class QComboBox: pass
-    class Qt:
-        Horizontal = None
-        RightDockWidgetArea = None
-    mw = None
+    try:
+        from PyQt6.QtWidgets import (
+            QDockWidget, QWidget, QVBoxLayout, QHBoxLayout, QLabel,
+            QLineEdit, QTextEdit, QTextBrowser, QPushButton, QProgressBar,
+            QTabWidget, QFrame, QComboBox
+        )
+        from PyQt6.QtCore import Qt
+        from PyQt6.QtGui import QCursor
+        mw = None
+    except ImportError:
+        class QWidget:
+            def __init__(self, *args, **kwargs): pass
+            def setLayout(self, l): pass
+            def setStyleSheet(self, s): pass
+        class QDockWidget:
+            def __init__(self, *args, **kwargs): pass
+            def setWidget(self, w): pass
+            def setStyleSheet(self, s): pass
+        class QVBoxLayout:
+            def __init__(self, *args, **kwargs): pass
+            def addWidget(self, w): pass
+            def addLayout(self, l): pass
+            def setContentsMargins(self, *args): pass
+            def setSpacing(self, s): pass
+        class QHBoxLayout:
+            def __init__(self, *args, **kwargs): pass
+            def addWidget(self, w): pass
+            def addStretch(self): pass
+            def addLayout(self, l): pass
+            def setContentsMargins(self, *args): pass
+            def setSpacing(self, s): pass
+        class QLabel:
+            def __init__(self, *args, **kwargs): pass
+            def setText(self, t): pass
+            def setProperty(self, *args): pass
+            def setStyleSheet(self, s): pass
+            def setAlignment(self, a): pass
+        class QLineEdit:
+            def __init__(self, *args, **kwargs): pass
+            def text(self): return ""
+            def setText(self, t): pass
+            def setPlaceholderText(self, t): pass
+            def hide(self): pass
+            def show(self): pass
+            returnPressed = None
+        class QTextEdit:
+            def __init__(self, *args, **kwargs): pass
+            def toPlainText(self): return ""
+            def setText(self, t): pass
+            def clear(self): pass
+            def setPlaceholderText(self, t): pass
+            textChanged = None
+        class QTextBrowser:
+            def __init__(self, *args, **kwargs): pass
+            def toPlainText(self): return ""
+            def setHtml(self, h): pass
+            def setFixedHeight(self, h): pass
+            def setStyleSheet(self, s): pass
+            def setVerticalScrollBarPolicy(self, p): pass
+            def setHorizontalScrollBarPolicy(self, p): pass
+            def setPlaceholderText(self, t): pass
+        class QPushButton:
+            def __init__(self, *args, **kwargs): pass
+            def setText(self, t): pass
+            def setEnabled(self, e): pass
+            def setProperty(self, *args): pass
+            def setCursor(self, c): pass
+            clicked = None
+        class QProgressBar:
+            def __init__(self, *args, **kwargs): pass
+            def setRange(self, *args): pass
+            def setValue(self, v): pass
+            def setFormat(self, f): pass
+            def maximum(self): return 100
+        class QTabWidget:
+            def __init__(self, *args, **kwargs): pass
+            def addTab(self, *args): pass
+            def setCurrentIndex(self, i): pass
+            def count(self): return 3
+            def tabText(self, i): return ""
+        class QFrame:
+            def __init__(self, *args, **kwargs): pass
+            def setProperty(self, *args): pass
+        class QComboBox:
+            def __init__(self, *args, **kwargs): pass
+            def addItem(self, *args, **kwargs): pass
+            def currentData(self): return None
+            currentIndexChanged = None
+        class Qt:
+            Horizontal = None
+            RightDockWidgetArea = None
+            class AlignmentFlag:
+                AlignCenter = None
+            class ScrollBarPolicy:
+                ScrollBarAlwaysOff = None
+            class CursorShape:
+                PointingHandCursor = None
+        mw = None
 
 from . import tree
 from .ai_search import AISearchClient, POPULAR_MODELS
@@ -50,102 +131,132 @@ from .timer_widget import NousTimerWidget
 
 STYLESHEET = """
 QDockWidget {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    background-color: #fafafa;
-    color: #1f2937;
+    font-family: "Satoshi", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    background-color: #f8f9fb;
+    color: #363f51;
 }
 
 QFrame.treeCard {
     background-color: #ffffff;
-    border: 1px solid #e5e7eb;
-    border-radius: 12px;
-    padding: 10px;
+    border: 1px solid #ebe8f3;
+    border-radius: 14px;
+    padding: 12px;
 }
 
 QLabel.treeName {
-    font-size: 15px;
-    font-weight: 700;
-    color: #111827;
+    font-family: "Satoshi", -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 16px;
+    font-weight: 500;
+    color: #363f51;
+    letter-spacing: 0.015em;
 }
 
 QLabel.tierBadge {
+    font-family: "Satoshi", sans-serif;
     font-size: 10px;
     font-weight: 700;
     text-transform: uppercase;
     color: #ffffff;
     border-radius: 10px;
-    padding: 2px 8px;
+    padding: 2px 9px;
+    letter-spacing: 0.04em;
 }
 
 QProgressBar {
-    border: 1px solid #e5e7eb;
-    border-radius: 6px;
+    border: 1px solid #ebe8f3;
+    border-radius: 7px;
     text-align: center;
+    font-family: "Satoshi", sans-serif;
     font-size: 11px;
-    font-weight: 600;
+    font-weight: 500;
     height: 14px;
-    background-color: #f3f4f6;
-    color: #374151;
+    background-color: #f1eef8;
+    color: #5f5390;
 }
 
 QProgressBar::chunk {
-    border-radius: 5px;
-    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #10b981, stop:1 #059669);
+    border-radius: 6px;
+    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #5FA8A3, stop:1 #42958f);
 }
 
 QPushButton.cityButton {
-    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #3b82f6, stop:1 #2563eb);
+    background-color: #5FA8A3;
     color: #ffffff;
-    font-weight: 600;
+    font-family: "Satoshi", sans-serif;
+    font-weight: 500;
     font-size: 12px;
-    border-radius: 8px;
-    padding: 6px 12px;
+    border-radius: 16px;
+    padding: 6px 14px;
     border: none;
+    letter-spacing: 0.02em;
 }
 QPushButton.cityButton:hover {
-    background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #2563eb, stop:1 #1d4ed8);
+    background-color: #4f9691;
 }
 
 QPushButton.actionButton {
-    background-color: #f3f4f6;
-    color: #374151;
+    background-color: #f1eef8;
+    color: #5f5390;
+    font-family: "Satoshi", sans-serif;
     font-weight: 500;
     font-size: 11px;
-    border: 1px solid #d1d5db;
-    border-radius: 6px;
+    border: 1px solid #e2ddf0;
+    border-radius: 14px;
     padding: 4px 10px;
 }
 QPushButton.actionButton:hover {
-    background-color: #e5e7eb;
+    background-color: #e6e0f3;
 }
 
 QPushButton.primaryButton {
-    background-color: #8b5cf6;
+    background-color: #8B7FB8;
     color: #ffffff;
-    font-weight: 600;
+    font-family: "Satoshi", sans-serif;
+    font-weight: 500;
     font-size: 11px;
-    border-radius: 6px;
-    padding: 4px 12px;
+    border-radius: 14px;
+    padding: 5px 14px;
     border: none;
+    letter-spacing: 0.02em;
 }
 QPushButton.primaryButton:hover {
-    background-color: #7c3aed;
+    background-color: #7b6fa6;
 }
 
 QLineEdit, QTextEdit, QTextBrowser, QComboBox {
+    font-family: "Satoshi", -apple-system, BlinkMacSystemFont, sans-serif;
     background-color: #ffffff;
-    border: 1px solid #d1d5db;
-    border-radius: 6px;
-    padding: 5px;
-    color: #1f2937;
+    border: 1px solid #ebe8f3;
+    border-radius: 8px;
+    padding: 6px;
+    color: #363f51;
     font-size: 12px;
 }
 
+QLineEdit:focus, QTextEdit:focus, QComboBox:focus {
+    border: 1px solid #8B7FB8;
+}
+
 QTabWidget::pane {
-    border: 1px solid #e5e7eb;
+    border: 1px solid #ebe8f3;
     background-color: #ffffff;
-    border-radius: 8px;
-    padding: 4px;
+    border-radius: 12px;
+    padding: 6px;
+}
+
+QTabBar::tab {
+    font-family: "Satoshi", sans-serif;
+    font-size: 12px;
+    font-weight: 400;
+    color: #7d8ca8;
+    padding: 6px 12px;
+    border: none;
+}
+
+QTabBar::tab:selected {
+    color: #5f5390;
+    font-weight: 600;
+    border-bottom: 2px solid #8B7FB8;
 }
 """
 

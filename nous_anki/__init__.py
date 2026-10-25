@@ -10,11 +10,13 @@ from typing import Any, Dict
 try:
     from aqt import gui_hooks, mw
     from aqt.qt import QAction, QKeySequence, Qt
+    from PyQt6.QtGui import QFontDatabase
 except ImportError:
     gui_hooks = None
     mw = None
     QAction = None
     QKeySequence = None
+    QFontDatabase = None
     class Qt:
         RightDockWidgetArea = None
 
@@ -143,9 +145,21 @@ def on_review_finished():
         )
 
 
+def load_fonts():
+    if not QFontDatabase:
+        return
+    fonts_dir = os.path.join(os.path.dirname(__file__), "fonts")
+    if os.path.isdir(fonts_dir):
+        for font_file in ["satoshi-300.woff2", "satoshi-400.woff2", "satoshi-500.woff2", "satoshi-700.woff2"]:
+            fpath = os.path.join(fonts_dir, font_file)
+            if os.path.exists(fpath):
+                QFontDatabase.addApplicationFont(fpath)
+
+
 def setup_addon():
     global sync_service, notes_mgr, dock_widget
 
+    load_fonts()
     load_configuration()
     storage_dir = get_user_storage_dir()
     sync_service = NousSyncService(storage_dir)

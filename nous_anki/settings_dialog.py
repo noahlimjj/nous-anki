@@ -43,6 +43,53 @@ class SettingsDialog(QDialog):
         self.setup_ui()
 
     def setup_ui(self):
+        self.setStyleSheet("""
+        QDialog {
+            background-color: #f8f9fb;
+            font-family: "Satoshi", -apple-system, BlinkMacSystemFont, sans-serif;
+            color: #363f51;
+        }
+        QGroupBox {
+            font-family: "Satoshi", sans-serif;
+            font-weight: 500;
+            font-size: 13px;
+            color: #5f5390;
+            border: 1px solid #ebe8f3;
+            border-radius: 14px;
+            margin-top: 12px;
+            padding: 16px 12px 12px 12px;
+            background-color: #ffffff;
+        }
+        QGroupBox::title {
+            subcontrol-origin: margin;
+            left: 14px;
+            padding: 0 6px;
+        }
+        QLineEdit, QComboBox, QSpinBox {
+            background-color: #ffffff;
+            border: 1px solid #ebe8f3;
+            border-radius: 8px;
+            padding: 6px;
+            color: #363f51;
+            font-family: "Satoshi", sans-serif;
+        }
+        QLineEdit:focus, QComboBox:focus, QSpinBox:focus {
+            border: 1px solid #8B7FB8;
+        }
+        QPushButton {
+            border-radius: 14px;
+            padding: 5px 14px;
+            font-family: "Satoshi", sans-serif;
+            font-weight: 500;
+            background-color: #f1eef8;
+            color: #5f5390;
+            border: 1px solid #e2ddf0;
+        }
+        QPushButton:hover {
+            background-color: #e6e0f3;
+        }
+        """)
+
         layout = QVBoxLayout(self)
         layout.setSpacing(14)
 

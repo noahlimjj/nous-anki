@@ -13,20 +13,50 @@ try:
     )
     from PyQt6.QtWebEngineWidgets import QWebEngineView
 except ImportError:
-    class QWidget: pass
-    class QVBoxLayout: pass
-    class QHBoxLayout: pass
-    class QLineEdit: pass
-    class QPushButton: pass
-    class QUrl:
-        def __init__(self, s=""): pass
-    class Qt: pass
-    class QWebEngineView(QWidget):
-        def setUrl(self, url): pass
-        def load(self, url): pass
-        def back(self): pass
-        def forward(self): pass
-        def reload(self): pass
+    try:
+        from PyQt6.QtWidgets import (
+            QWidget, QVBoxLayout, QHBoxLayout, QLineEdit, QPushButton
+        )
+        from PyQt6.QtCore import QUrl, Qt
+        from PyQt6.QtWebEngineWidgets import QWebEngineView
+    except ImportError:
+        class QWidget:
+            def __init__(self, *args, **kwargs): pass
+            def setLayout(self, l): pass
+        class QVBoxLayout:
+            def __init__(self, *args, **kwargs): pass
+            def addWidget(self, *args): pass
+            def addLayout(self, *args): pass
+            def setContentsMargins(self, *args): pass
+            def setSpacing(self, *args): pass
+        class QHBoxLayout:
+            def __init__(self, *args, **kwargs): pass
+            def addWidget(self, *args): pass
+            def addLayout(self, *args): pass
+            def setSpacing(self, *args): pass
+        class QLineEdit:
+            def __init__(self, *args, **kwargs): pass
+            def text(self): return ""
+            def setText(self, t): pass
+            def setPlaceholderText(self, t): pass
+            returnPressed = None
+        class QPushButton:
+            def __init__(self, *args, **kwargs): pass
+            def setFixedWidth(self, w): pass
+            def setStyleSheet(self, s): pass
+            clicked = None
+        class QUrl:
+            def __init__(self, s=""): pass
+            def toString(self): return ""
+        class Qt: pass
+        class QWebEngineView(QWidget):
+            def __init__(self, *args, **kwargs): pass
+            def setUrl(self, url): pass
+            def load(self, url): pass
+            def back(self): pass
+            def forward(self): pass
+            def reload(self): pass
+            urlChanged = None
 
 
 class NousEmbeddedBrowser(QWidget):

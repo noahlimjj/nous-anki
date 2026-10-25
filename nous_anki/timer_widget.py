@@ -13,18 +13,61 @@ try:
         QComboBox, QFrame, QTimer, Qt, QCursor
     )
 except ImportError:
-    class QWidget: pass
-    class QVBoxLayout: pass
-    class QHBoxLayout: pass
-    class QLabel: pass
-    class QPushButton: pass
-    class QComboBox: pass
-    class QFrame: pass
-    class QTimer:
-        def __init__(self, *args): pass
-        def start(self, ms): pass
-        def stop(self): pass
-    class Qt: pass
+    try:
+        from PyQt6.QtWidgets import (
+            QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton,
+            QComboBox, QFrame
+        )
+        from PyQt6.QtCore import QTimer, Qt
+        from PyQt6.QtGui import QCursor
+    except ImportError:
+        class QWidget:
+            def __init__(self, *args, **kwargs): pass
+        class QVBoxLayout:
+            def __init__(self, *args, **kwargs): pass
+            def addWidget(self, *args): pass
+            def addLayout(self, *args): pass
+            def setContentsMargins(self, *args): pass
+            def setSpacing(self, *args): pass
+        class QHBoxLayout:
+            def __init__(self, *args, **kwargs): pass
+            def addWidget(self, *args): pass
+            def addStretch(self, *args): pass
+            def addLayout(self, *args): pass
+            def setContentsMargins(self, *args): pass
+            def setSpacing(self, *args): pass
+        class QLabel:
+            def __init__(self, *args, **kwargs): pass
+            def setText(self, t): pass
+            def text(self): return "00:00"
+            def setProperty(self, *args): pass
+            def setAlignment(self, *args): pass
+            def setStyleSheet(self, *args): pass
+        class QPushButton:
+            def __init__(self, *args, **kwargs): pass
+            def setText(self, t): pass
+            def text(self): return ""
+            def setFixedWidth(self, w): pass
+            def setToolTip(self, t): pass
+            def setStyleSheet(self, *args): pass
+            clicked = None
+        class QComboBox:
+            def __init__(self, *args, **kwargs): pass
+            def addItems(self, *args): pass
+            def currentIndex(self): return 0
+            def setCurrentIndex(self, i): pass
+            currentIndexChanged = None
+        class QFrame:
+            def __init__(self, *args, **kwargs): pass
+            def setStyleSheet(self, *args): pass
+        class QTimer:
+            def __init__(self, *args): pass
+            def start(self, ms): pass
+            def stop(self): pass
+            timeout = None
+        class Qt:
+            class AlignmentFlag:
+                AlignCenter = None
 
 from .sound import NousSoundPlayer
 from .sync import NousSyncService, _iso_from_timestamp, _iso_now
@@ -52,15 +95,25 @@ class NousTimerWidget(QFrame):
         self.setStyleSheet("""
         QFrame {
             background-color: #ffffff;
-            border: 1px solid #e5e7eb;
-            border-radius: 10px;
-            padding: 8px;
+            border: 1px solid #ebe8f3;
+            border-radius: 14px;
+            padding: 10px;
         }
         QLabel.timeDisplay {
-            font-size: 26px;
-            font-weight: 700;
-            font-family: -apple-system, monospace;
-            color: #1f2937;
+            font-size: 32px;
+            font-weight: 300;
+            font-family: "Satoshi", sans-serif;
+            color: #363f51;
+            letter-spacing: 0.04em;
+        }
+        QComboBox {
+            font-family: "Satoshi", sans-serif;
+            border: 1px solid #ebe8f3;
+            border-radius: 12px;
+            padding: 3px 8px;
+            font-size: 11px;
+            color: #5f5390;
+            background-color: #f1eef8;
         }
         """)
 
@@ -76,6 +129,7 @@ class NousTimerWidget(QFrame):
 
         self.sound_btn = QPushButton("🔊")
         self.sound_btn.setFixedWidth(32)
+        self.sound_btn.setStyleSheet("border: 1px solid #ebe8f3; border-radius: 12px; background: #ffffff;")
         self.sound_btn.setToolTip("Toggle sound effects")
         self.sound_btn.clicked.connect(self._toggle_sound)
 
@@ -95,11 +149,11 @@ class NousTimerWidget(QFrame):
         ctrl_row.setSpacing(6)
 
         self.start_btn = QPushButton("▶ Start")
-        self.start_btn.setStyleSheet("background-color: #10b981; color: white; font-weight: bold; border-radius: 6px; padding: 5px 12px;")
+        self.start_btn.setStyleSheet("background-color: #5FA8A3; color: white; font-family: 'Satoshi', sans-serif; font-weight: 500; border-radius: 16px; padding: 5px 14px; border: none;")
         self.start_btn.clicked.connect(self.toggle_start_pause)
 
         self.stop_btn = QPushButton("⏹ Stop & Sync")
-        self.stop_btn.setStyleSheet("background-color: #f3f4f6; color: #374151; font-weight: 600; border: 1px solid #d1d5db; border-radius: 6px; padding: 5px 10px;")
+        self.stop_btn.setStyleSheet("background-color: #f1eef8; color: #5f5390; font-family: 'Satoshi', sans-serif; font-weight: 500; border: 1px solid #e2ddf0; border-radius: 16px; padding: 5px 12px;")
         self.stop_btn.clicked.connect(self.stop_and_sync)
 
         ctrl_row.addWidget(self.start_btn)
