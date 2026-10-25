@@ -120,7 +120,7 @@ class TestNousAnkiAll(unittest.TestCase):
         model_names = [m[2] for m in POPULAR_MODELS if m[2]]
         self.assertIn("gpt-4o", model_names)
         self.assertIn("claude-3-5-sonnet-20241022", model_names)
-        self.assertIn("gemini-2.5-flash", model_names)
+        self.assertIn("gemini-1.5-flash", model_names)
         self.assertIn("sonar", model_names)
 
         # Web search URL builder

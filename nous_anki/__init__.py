@@ -43,9 +43,9 @@ def load_configuration() -> Dict[str, Any]:
         "nous_habit_name": "Anki",
         "nous_city_url": "https://nous.study/city",
         "sync_interval_seconds": 60,
-        "ai_provider": "openai",
+        "ai_provider": "gemini",
         "ai_api_key": "",
-        "ai_model": "gpt-4o-mini",
+        "ai_model": "gemini-1.5-flash",
         "ai_base_url": "",
         "show_dock_on_startup": True,
     }
