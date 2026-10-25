@@ -52,7 +52,7 @@ class TestComprehensiveFeatures(unittest.TestCase):
             "sync_interval_seconds": 60,
             "ai_provider": "gemini",
             "ai_api_key": "AIzaSyTestMockKey",
-            "ai_model": "gemini-1.5-flash",
+            "ai_model": "gemini-2.5-flash",
             "ai_base_url": "",
             "show_dock_on_startup": True,
         }
@@ -75,7 +75,7 @@ class TestComprehensiveFeatures(unittest.TestCase):
         self.assertEqual(dialog.sync_interval_spin.value(), 60)
         self.assertEqual(dialog.ai_provider_combo.currentIndex(), 0)  # gemini free tier
         self.assertEqual(dialog.api_key_input.text(), "AIzaSyTestMockKey")
-        self.assertEqual(dialog.ai_model_input.text(), "gemini-1.5-flash")
+        self.assertEqual(dialog.ai_model_input.text(), "gemini-2.5-flash")
 
         # Edit fields and test save
         dialog.habit_input.setText("Medicine Flashcards")
@@ -151,7 +151,7 @@ class TestComprehensiveFeatures(unittest.TestCase):
 
     # 3. AI PROVIDER PAYLOAD TESTS
     def test_gemini_api_payload_and_url(self):
-        client = AISearchClient(provider="gemini", api_key="AIzaSyMockKey", model="gemini-1.5-flash")
+        client = AISearchClient(provider="gemini", api_key="AIzaSyMockKey", model="gemini-2.5-flash")
         with patch("urllib.request.urlopen") as mock_urlopen:
             mock_response = MagicMock()
             mock_response.read.return_value = json.dumps({
@@ -166,12 +166,12 @@ class TestComprehensiveFeatures(unittest.TestCase):
             res = client.search_query("Explain SIADH vs Diabetes Insipidus")
             self.assertTrue(res["success"])
             self.assertEqual(res["provider"].lower(), "gemini")
-            self.assertEqual(res["model"], "gemini-1.5-flash")
+            self.assertEqual(res["model"], "gemini-2.5-flash")
             self.assertIn("high-yield clinical pearl", res["answer"])
 
             # Verify request URL format
             called_req = mock_urlopen.call_args[0][0]
-            self.assertIn("generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent", called_req.full_url)
+            self.assertIn("generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent", called_req.full_url)
             self.assertIn("key=AIzaSyMockKey", called_req.full_url)
             payload = json.loads(called_req.data.decode("utf-8"))
             self.assertIn("contents", payload)

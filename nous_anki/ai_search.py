@@ -19,8 +19,9 @@ SYSTEM_STUDY_PROMPT = (
 )
 
 POPULAR_MODELS = [
-    ("gemini 1.5 flash (free)", "gemini", "gemini-1.5-flash"),
-    ("gemini 2.0 flash", "gemini", "gemini-2.0-flash"),
+    ("gemini 2.5 flash (free)", "gemini", "gemini-2.5-flash"),
+    ("gemini 2.5 flash-lite", "gemini", "gemini-2.5-flash-lite"),
+    ("gemini 2.5 pro", "gemini", "gemini-2.5-pro"),
     ("gpt-4o-mini", "openai", "gpt-4o-mini"),
     ("gpt-4o", "openai", "gpt-4o"),
     ("claude 3.5 haiku", "anthropic", "claude-3-5-haiku-20241022"),
@@ -64,7 +65,7 @@ class AISearchClient:
 
         try:
             if "gemini" in prov:
-                return self._call_gemini(query, model_name or "gemini-1.5-flash")
+                return self._call_gemini(query, model_name or "gemini-2.5-flash")
             elif "perplexity" in prov:
                 return self._call_perplexity(query, model_name or "sonar")
             elif "anthropic" in prov or "claude" in prov:

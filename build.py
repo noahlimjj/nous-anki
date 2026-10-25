@@ -41,11 +41,27 @@ def build_package():
     if os.path.isdir(anki_addons_dir):
         dest_addon = os.path.join(anki_addons_dir, "nous_anki")
         print(f"[Install] Deploying to Anki addons directory: {dest_addon}")
+        existing_config = None
+        cfg_path = os.path.join(dest_addon, "config.json")
+        if os.path.isfile(cfg_path):
+            try:
+                with open(cfg_path, "r", encoding="utf-8") as f:
+                    existing_config = f.read()
+            except Exception:
+                pass
+
         if os.path.islink(dest_addon):
             os.unlink(dest_addon)
         elif os.path.exists(dest_addon):
             shutil.rmtree(dest_addon)
         shutil.copytree(source_dir, dest_addon, ignore=shutil.ignore_patterns("__pycache__", "user_files", "*.pyc"))
+
+        if existing_config:
+            try:
+                with open(os.path.join(dest_addon, "config.json"), "w", encoding="utf-8") as f:
+                    f.write(existing_config)
+            except Exception:
+                pass
         print(f"[Install] Installed to {dest_addon}")
     else:
         print("[Install] Note: Anki addons directory not found on this machine. Ready to share .ankiaddon!")
