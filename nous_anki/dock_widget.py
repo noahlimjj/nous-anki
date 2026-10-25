@@ -128,7 +128,44 @@ from .sound import NousSoundPlayer
 from .sync import NousSyncService
 from .timer_widget import NousTimerWidget
 from .tree_widget import NousTreeWidget
-from .theme import NOUS_STYLESHEET, ensure_fonts_loaded
+from .theme import NOUS_STYLESHEET, ensure_fonts_loaded, get_nous_stylesheet, is_night_mode
+
+
+def format_markdown_for_qt(raw_text: str, is_dark: bool = False) -> str:
+    """Formats markdown into clean, styled HTML for QTextBrowser."""
+    import re, html
+    text = html.escape(raw_text)
+
+    # Headings
+    text = re.sub(r"^###\s+(.+)$", r"<div style='font-size:1.05em;font-weight:600;margin:6px 0 2px 0;color:" + ("#c4b5fd" if is_dark else "#5f5390") + r";'>\1</div>", text, flags=re.MULTILINE)
+    text = re.sub(r"^##\s+(.+)$", r"<div style='font-size:1.15em;font-weight:600;margin:8px 0 3px 0;color:" + ("#c4b5fd" if is_dark else "#5f5390") + r";'>\1</div>", text, flags=re.MULTILINE)
+    text = re.sub(r"^#\s+(.+)$", r"<div style='font-size:1.25em;font-weight:600;margin:10px 0 4px 0;color:" + ("#c4b5fd" if is_dark else "#5f5390") + r";'>\1</div>", text, flags=re.MULTILINE)
+
+    # Bold **text**
+    text = re.sub(r"\*\*(.+?)\*\*", r"<b style='font-weight:600;color:" + ("#a78bfa" if is_dark else "#6d28d9") + r";'>\1</b>", text)
+
+    # Inline code `code`
+    text = re.sub(r"`([^`]+)`", r"<code style='background:" + ("#2d2d38" if is_dark else "#f1eef8") + r";color:" + ("#e2e8f0" if is_dark else "#4b5563") + r";padding:1px 5px;border-radius:4px;font-size:0.9em;'>\1</code>", text)
+
+    lines = []
+    in_list = False
+    for line in text.split("\n"):
+        stripped = line.strip()
+        if stripped.startswith("* ") or stripped.startswith("- ") or stripped.startswith("• "):
+            if not in_list:
+                lines.append("<ul style='margin:4px 0;padding-left:18px;'>")
+                in_list = True
+            item = stripped[2:].strip()
+            lines.append(f"<li style='margin-bottom:4px;line-height:1.4;'>{item}</li>")
+        else:
+            if in_list:
+                lines.append("</ul>")
+                in_list = False
+            if stripped:
+                lines.append(f"<p style='margin:4px 0;line-height:1.4;'>{stripped}</p>")
+    if in_list:
+        lines.append("</ul>")
+    return "".join(lines)
 
 
 class NousDockWidget(QDockWidget):
@@ -151,8 +188,11 @@ class NousDockWidget(QDockWidget):
 
         ensure_fonts_loaded()
         self.setup_ui()
-        self.setStyleSheet(NOUS_STYLESHEET)
+        self.setStyleSheet(get_nous_stylesheet(self.is_dark_mode()))
         self.refresh_tree_display()
+
+    def is_dark_mode(self) -> bool:
+        return is_night_mode()
 
     def setup_ui(self):
         container = QWidget()
@@ -437,16 +477,39 @@ class NousDockWidget(QDockWidget):
 
     def explain_current_card(self):
         if not self.current_card:
-            self.ai_result_view.setHtml("<i>No active flashcard currently displayed.</i>")
+            self.ai_result_view.setHtml("<i>no active flashcard currently displayed. start reviewing a deck first.</i>")
             return
         try:
-            q_text = self.current_card.question()
             import re
-            clean_q = re.sub(r"<[^>]+>", " ", q_text).strip()
-            self.ai_input.setText(f"Explain this concept and give high-yield pearls: {clean_q[:250]}")
+            q_text = self.current_card.question()
+            # Clean sound tags and HTML
+            clean_q = re.sub(r"\[sound:[^\]]+\]", "", q_text)
+            clean_q = re.sub(r"<[^>]+>", " ", clean_q)
+            clean_q = " ".join(clean_q.split())
+
+            # Detect Cloze deletion terms if present
+            cloze_clues = []
+            try:
+                anki_note = self.current_card.note()
+                for fld_name in [f["name"] for f in anki_note.note_type()["flds"]]:
+                    val = anki_note[fld_name]
+                    matches = re.findall(r"\{\{c\d+::([^:}]+)(?:::([^}]+))?\}\}", val)
+                    for m in matches:
+                        cloze_clues.append(m[0].strip())
+            except Exception:
+                pass
+
+            if cloze_clues:
+                clue_str = ", ".join(dict.fromkeys(cloze_clues))
+                prompt = f"Explain the concept '{clue_str}' in this context and give high-yield pearls: {clean_q[:1000]}"
+            else:
+                prompt = f"Explain this concept and give high-yield pearls: {clean_q[:1000]}"
+
+            self.ai_input.setText(prompt)
+            self.tabs.setCurrentIndex(0)  # switch to AI tab
             self.run_ai_search()
         except Exception as e:
-            self.ai_result_view.setHtml(f"<i>Could not read card: {e}</i>")
+            self.ai_result_view.setHtml(f"<i>could not read card: {e}</i>")
 
     def run_ai_search(self):
         query = self.ai_input.text().strip()
@@ -461,12 +524,15 @@ class NousDockWidget(QDockWidget):
         def on_result(res: Dict[str, Any]):
             def update():
                 self.ask_btn.setEnabled(True)
+                is_dark = self.is_dark_mode()
+                text_color = "#e2e8f0" if is_dark else "#1f2937"
+                sub_color = "#a78bfa" if is_dark else "#7c3aed"
                 if res.get("success"):
-                    ans = html.escape(res.get("answer", "")).replace("\n", "<br>")
+                    ans = format_markdown_for_qt(res.get("answer", ""), is_dark=is_dark)
                     p = res.get("provider", "AI")
                     m = res.get("model", model_name)
-                    content = f"""<div style="font-family: sans-serif; font-size: 13px; line-height: 1.5; color: #1f2937;">
-                    <div style="font-size: 11px; color: #7c3aed; font-weight: 400; margin-bottom: 6px;">
+                    content = f"""<div style="font-family: 'Satoshi', sans-serif; font-size: 13px; line-height: 1.5; color: {text_color};">
+                    <div style="font-size: 11px; color: {sub_color}; font-weight: 400; margin-bottom: 6px;">
                         ✦ {p} ({m})
                     </div>
                     {ans}

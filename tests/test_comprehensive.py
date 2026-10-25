@@ -288,6 +288,7 @@ class TestComprehensiveFeatures(unittest.TestCase):
         self.assertEqual(widget.pct, 85.0)
 
         # Tick animation
+        widget.show()
         widget._on_tick()
         self.assertGreater(widget.anim_time, 0.0)
 

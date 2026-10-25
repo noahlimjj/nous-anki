@@ -30,7 +30,7 @@ except ImportError:
     mw = None
 
 from .sync import NousSyncService
-from .theme import NOUS_STYLESHEET, ensure_fonts_loaded
+from .theme import NOUS_STYLESHEET, ensure_fonts_loaded, get_nous_stylesheet
 
 
 class SettingsDialog(QDialog):
@@ -45,7 +45,7 @@ class SettingsDialog(QDialog):
 
     def setup_ui(self):
         ensure_fonts_loaded()
-        self.setStyleSheet(NOUS_STYLESHEET)
+        self.setStyleSheet(get_nous_stylesheet())
 
         layout = QVBoxLayout(self)
         layout.setSpacing(14)

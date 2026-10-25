@@ -145,9 +145,18 @@ class NousTreeWidget(QWidget):
             except Exception:
                 self.svg_renderer = None
 
+        if hasattr(self, "timer") and hasattr(self.timer, "isActive") and self.timer.isActive():
+            try:
+                self.timer.setInterval(50 if self.is_growing else 150)
+            except Exception:
+                pass
+
         self.update()
 
     def _on_tick(self):
+        # Battery / CPU optimization: skip updates when widget is not visible
+        if hasattr(self, "isVisible") and not self.isVisible():
+            return
         self.anim_time += 0.05
         self.cloud_offset += 0.2
         if self.cloud_offset > 360.0:

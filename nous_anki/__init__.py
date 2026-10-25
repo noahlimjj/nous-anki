@@ -113,6 +113,32 @@ def trigger_sync():
         dock_widget.trigger_manual_sync()
 
 
+def explain_active_card():
+    """Immediately opens the AI tab and queries Gemini to explain the current flashcard."""
+    global dock_widget
+    if not dock_widget:
+        setup_addon()
+    if dock_widget:
+        if not dock_widget.isVisible():
+            dock_widget.show()
+            dock_widget.raise_()
+            dock_widget.activateWindow()
+        dock_widget.tabs.setCurrentIndex(0)
+        dock_widget.explain_current_card()
+
+
+def on_profile_will_close():
+    """Flushes accumulator and stops & syncs any running focus timer when closing Anki."""
+    global sync_service, dock_widget
+    if sync_service:
+        habit = addon_config.get("nous_habit_name", "Anki")
+        sync_service.process_and_sync(habit_name=habit, min_ms=3000)
+    if dock_widget and getattr(dock_widget, "timer_widget", None):
+        tw = dock_widget.timer_widget
+        if getattr(tw, "running", False) or getattr(tw, "start_timestamp", None):
+            tw.stop_and_sync()
+
+
 def on_card_answered(reviewer: Any, card: Any, ease: int):
     """Fires every time a card is answered during review."""
     global sync_service, dock_widget
@@ -292,6 +318,12 @@ def setup_addon():
         toggle_action.triggered.connect(toggle_dock)
         tools_menu.addAction(toggle_action)
 
+        # Explain card action
+        explain_action = QAction("explain current card with nous ai", mw)
+        explain_action.setShortcut(QKeySequence("Ctrl+Shift+E"))
+        explain_action.triggered.connect(explain_active_card)
+        tools_menu.addAction(explain_action)
+
         # Sync action
         sync_action = QAction("sync hours to nous", mw)
         sync_action.triggered.connect(trigger_sync)
@@ -313,6 +345,7 @@ def setup_addon():
         gui_hooks.card_will_show.append(on_card_will_show)
         gui_hooks.reviewer_will_end.append(on_review_finished)
         gui_hooks.sync_will_start.append(on_review_finished)
+        gui_hooks.profile_will_close.append(on_profile_will_close)
 
 
 # Initialize hooks and startup
