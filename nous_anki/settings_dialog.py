@@ -89,6 +89,17 @@ class SettingsDialog(QDialog):
         self.sync_interval_spin.setSuffix(" seconds")
         nous_form.addRow("auto-sync interval:", self.sync_interval_spin)
 
+        folder_row = QHBoxLayout()
+        self.open_folder_btn = QPushButton("open nous folder in finder 📁")
+        self.open_folder_btn.setProperty("class", "actionButton")
+        self.open_folder_btn.setStyleSheet("font-size: 11px; font-weight: 400; padding: 4px 10px; background-color: #f1eef8; color: #5f5390; border: 1px solid #e2ddf0; border-radius: 12px;")
+        def _open_folder():
+            import os, subprocess
+            subprocess.run(["open", os.path.dirname(os.path.abspath(__file__))])
+        self.open_folder_btn.clicked.connect(_open_folder)
+        folder_row.addWidget(self.open_folder_btn)
+        nous_form.addRow("add-on files:", folder_row)
+
         layout.addWidget(nous_group)
 
         # 2. AI SEARCH & API KEY GROUP

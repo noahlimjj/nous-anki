@@ -85,13 +85,27 @@ def open_settings_dialog():
     dialog.exec()
 
 
+def open_nous_folder():
+    """Opens the Nous Add-on directory in macOS Finder or file manager."""
+    try:
+        import subprocess
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        subprocess.run(["open", base_dir])
+    except Exception as e:
+        print(f"[Nous Anki] Failed to open folder: {e}")
+
+
 def toggle_dock():
+    global dock_widget
+    if not dock_widget:
+        setup_addon()
     if dock_widget:
         if dock_widget.isVisible():
             dock_widget.hide()
         else:
             dock_widget.show()
             dock_widget.raise_()
+            dock_widget.activateWindow()
 
 
 def trigger_sync():
@@ -151,6 +165,29 @@ def load_fonts():
 
 
 _addon_initialized = False
+
+
+def on_top_toolbar_will_set_right_tray_content(content, toolbar):
+    """Places the Nous button on the top right tray of Anki toolbar."""
+    try:
+        toolbar.link_handlers["nous_toggle"] = toggle_dock
+        button_html = (
+            '<a class="hitem" tabindex="-1" aria-label="nous" '
+            'title="nous — click to open sidebar (Ctrl+Shift+N)" '
+            'href="#" onclick="return pycmd(\'nous_toggle\')" style="text-decoration:none;">'
+            '<span style="display:inline-flex;align-items:center;gap:5px;background:#f1eef8;color:#5f5390;'
+            'border:1px solid #e2ddf0;border-radius:14px;padding:3px 10px;font-family:\'Satoshi\',sans-serif;'
+            'font-size:11px;font-weight:400;cursor:pointer;">'
+            '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="vertical-align:middle;">'
+            '<circle cx="12" cy="12" r="9" stroke="#8B7FB8" stroke-width="2" stroke-dasharray="14 6"/>'
+            '<text x="12" y="16" text-anchor="middle" font-family="\'Satoshi\',sans-serif" font-size="11" font-weight="bold" fill="#8B7FB8">n</text>'
+            '</svg>'
+            '<span>nous</span>'
+            '</span></a>'
+        )
+        content.append(button_html)
+    except Exception:
+        pass
 
 
 def on_top_toolbar_did_init_links(links, toolbar):
@@ -254,6 +291,11 @@ def setup_addon():
         city_action.triggered.connect(lambda: dock_widget.open_city_link() if dock_widget else None)
         tools_menu.addAction(city_action)
 
+        # Open folder action
+        folder_action = QAction("open nous folder in finder 📁", mw)
+        folder_action.triggered.connect(open_nous_folder)
+        tools_menu.addAction(folder_action)
+
     # Register Anki hooks
     if gui_hooks:
         gui_hooks.reviewer_did_answer_card.append(on_card_answered)
@@ -265,6 +307,7 @@ def setup_addon():
 # Initialize hooks and startup
 if mw and gui_hooks:
     gui_hooks.profile_did_open.append(setup_addon)
+    gui_hooks.top_toolbar_will_set_right_tray_content.append(on_top_toolbar_will_set_right_tray_content)
     gui_hooks.top_toolbar_did_init_links.append(on_top_toolbar_did_init_links)
     gui_hooks.deck_browser_will_render_content.append(on_deck_browser_will_render_content)
     gui_hooks.webview_did_receive_js_message.append(on_webview_message)
