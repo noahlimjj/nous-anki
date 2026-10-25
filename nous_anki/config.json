@@ -1,0 +1,13 @@
+{
+  "nous_email": "",
+  "nous_password": "",
+  "nous_user_id": "",
+  "nous_habit_name": "Anki",
+  "nous_city_url": "https://nous.study/city",
+  "sync_interval_seconds": 60,
+  "ai_provider": "openai",
+  "ai_api_key": "",
+  "ai_model": "gpt-4o-mini",
+  "ai_base_url": "",
+  "show_dock_on_startup": true
+}
