@@ -155,7 +155,7 @@ def on_card_answered(reviewer: Any, card: Any, ease: int):
         cur_ms = sync_service.accumulator.current_duration_ms
         cur_cards = sync_service.accumulator.current_cards
 
-        dock_widget.sync_status_label.setText(f"🟢 Active: {cur_ms // 1000}s ({cur_cards} cards)")
+        dock_widget.sync_status_label.setText(f"active: {cur_ms // 1000}s ({cur_cards} cards)")
 
         if cur_ms >= interval_ms:
             habit = addon_config.get("nous_habit_name", "Anki")

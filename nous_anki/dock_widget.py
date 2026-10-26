@@ -371,7 +371,7 @@ class NousDockWidget(QDockWidget):
 
         # Footer Sync Status Row
         footer_row = QHBoxLayout()
-        self.sync_status_label = QLabel("✨ auto-syncing to nous")
+        self.sync_status_label = QLabel("auto-syncing to nous")
         self.sync_status_label.setStyleSheet("font-size: 10px; color: #7d8ca8; font-weight: 300;")
         footer_row.addWidget(self.sync_status_label)
         footer_row.addStretch()
