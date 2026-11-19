@@ -1,7 +1,7 @@
 """
 Nous Anki Add-on
 Automatically logs Anki study hours to Nous, shows live tree growth,
-links to Nous City, provides AI & web search with custom API key, and card notes.
+links to Nous City, provides AI & web search with custom API keys, and card notes.
 """
 
 import os
@@ -47,6 +47,10 @@ def load_configuration() -> Dict[str, Any]:
         "ai_api_key": "",
         "ai_model": "gemini-2.5-flash",
         "ai_base_url": "",
+        "gemini_api_key": "",
+        "anthropic_api_key": "",
+        "openai_api_key": "",
+        "perplexity_api_key": "",
         "show_dock_on_startup": True,
     }
     loaded = mw.addonManager.getConfig(__name__) if mw else None
@@ -62,12 +66,7 @@ def save_configuration(new_config: Dict[str, Any]):
     if mw:
         mw.addonManager.writeConfig(__name__, addon_config)
     if dock_widget:
-        dock_widget.config = addon_config
-        dock_widget.ai_client.provider = addon_config.get("ai_provider", "openai")
-        dock_widget.ai_client.api_key = addon_config.get("ai_api_key", "")
-        dock_widget.ai_client.model = addon_config.get("ai_model", "")
-        dock_widget.ai_client.base_url = addon_config.get("ai_base_url", "")
-        dock_widget.refresh_tree_display()
+        dock_widget.apply_config(addon_config)
 
 
 def get_user_storage_dir() -> str:
@@ -114,7 +113,7 @@ def trigger_sync():
 
 
 def explain_active_card():
-    """Immediately opens the AI tab and queries Gemini to explain the current flashcard."""
+    """Immediately opens the AI tab and queries AI to explain the current flashcard."""
     global dock_widget
     if not dock_widget:
         setup_addon()
@@ -123,7 +122,7 @@ def explain_active_card():
             dock_widget.show()
             dock_widget.raise_()
             dock_widget.activateWindow()
-        dock_widget.tabs.setCurrentIndex(0)
+        dock_widget.tabs.setCurrentIndex(dock_widget.TAB_AI)
         dock_widget.explain_current_card()
 
 
@@ -145,24 +144,30 @@ def on_card_answered(reviewer: Any, card: Any, ease: int):
     if not sync_service:
         return
 
-    # card.time_taken() gives millisecond duration spent on card
     duration_ms = getattr(card, "time_taken", lambda: 5000)()
     sync_service.accumulator.add_card_time(duration_ms)
 
     if dock_widget:
-        # Check if accumulated time exceeds configured sync interval
         interval_ms = int(addon_config.get("sync_interval_seconds", 60)) * 1000
         cur_ms = sync_service.accumulator.current_duration_ms
         cur_cards = sync_service.accumulator.current_cards
 
-        dock_widget.sync_status_label.setText(f"active: {cur_ms // 1000}s ({cur_cards} cards)")
+        dock_widget.sync_status_label.setText(f"🟢 active: {cur_ms // 1000}s ({cur_cards} cards)")
 
         if cur_ms >= interval_ms:
             habit = addon_config.get("nous_habit_name", "Anki")
+            def _done(ok: bool, cnt: int):
+                def _ui():
+                    dock_widget.refresh_account_card()
+                    dock_widget.refresh_tree_display()
+                if mw and hasattr(mw, "taskman"):
+                    mw.taskman.run_on_main(_ui)
+                else:
+                    _ui()
             sync_service.process_and_sync(
                 habit_name=habit,
                 min_ms=interval_ms,
-                on_done=lambda ok, cnt: dock_widget.refresh_tree_display()
+                on_done=_done
             )
 
 
@@ -179,10 +184,19 @@ def on_review_finished():
     global sync_service, dock_widget
     if sync_service:
         habit = addon_config.get("nous_habit_name", "Anki")
+        def _done(ok: bool, cnt: int):
+            if dock_widget:
+                def _ui():
+                    dock_widget.refresh_account_card()
+                    dock_widget.refresh_tree_display()
+                if mw and hasattr(mw, "taskman"):
+                    mw.taskman.run_on_main(_ui)
+                else:
+                    _ui()
         sync_service.process_and_sync(
             habit_name=habit,
             min_ms=5000,
-            on_done=lambda ok, cnt: dock_widget.refresh_tree_display() if dock_widget else None
+            on_done=_done
         )
 
 
@@ -205,7 +219,7 @@ def on_top_toolbar_will_set_right_tray_content(content, toolbar):
             'href="#" onclick="return pycmd(\'nous_toggle\')" style="text-decoration:none;">'
             '<span style="display:inline-flex;align-items:center;gap:5px;background:#f1eef8;color:#5f5390;'
             'border:1px solid #e2ddf0;border-radius:14px;padding:3px 10px;font-family:\'Satoshi\',sans-serif;'
-            'font-size:11px;font-weight:400;cursor:pointer;">'
+            'font-size:11px;font-weight:500;cursor:pointer;">'
             '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" style="vertical-align:middle;">'
             '<circle cx="12" cy="12" r="9" stroke="#8B7FB8" stroke-width="2" stroke-dasharray="14 6"/>'
             '<text x="12" y="16" text-anchor="middle" font-family="\'Satoshi\',sans-serif" font-size="11" font-weight="bold" fill="#8B7FB8">n</text>'
@@ -229,7 +243,7 @@ def on_top_toolbar_did_init_links(links, toolbar):
     try:
         link = toolbar.create_link(
             "nous_toggle",
-            """<span style="display:inline-flex;align-items:center;gap:4px;color:#8B7FB8;font-family:'Satoshi',sans-serif;font-weight:400;font-size:12px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" style="vertical-align:middle;margin-right:2px;"><circle cx="12" cy="12" r="9" stroke="#8B7FB8" stroke-width="2" stroke-dasharray="14 6"/><text x="12" y="16" text-anchor="middle" font-family="'Satoshi',sans-serif" font-size="11" font-weight="bold" fill="#8B7FB8">n</text></svg>nous</span>""",
+            """<span style="display:inline-flex;align-items:center;gap:4px;color:#8B7FB8;font-family:'Satoshi',sans-serif;font-weight:500;font-size:12px;"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" style="vertical-align:middle;margin-right:2px;"><circle cx="12" cy="12" r="9" stroke="#8B7FB8" stroke-width="2" stroke-dasharray="14 6"/><text x="12" y="16" text-anchor="middle" font-family="'Satoshi',sans-serif" font-size="11" font-weight="bold" fill="#8B7FB8">n</text></svg>nous</span>""",
             toggle_dock,
             tip="toggle nous sidebar (Ctrl+Shift+N)",
             id="nous_toolbar_link"
@@ -243,11 +257,8 @@ def on_deck_browser_will_render_content(deck_browser, content):
     """Renders an authentic, minimal Nous badge on Anki's main deck browser page."""
     try:
         hours = 0.0
-        cur_tree = "tree"
         if sync_service and sync_service.cached_state:
             hours = float(sync_service.cached_state.get("totalHours", 0.0))
-        if dock_widget and hasattr(dock_widget, "tree_name_label"):
-            cur_tree = dock_widget.tree_name_label.text()
 
         badge = f"""
         <div style="margin: 24px auto 12px auto; max-width: 360px; padding: 9px 14px; background: #ffffff; border: 1px solid #ebe8f3; border-radius: 14px; display: flex; align-items: center; justify-content: space-between; font-family: 'Satoshi', -apple-system, sans-serif; font-size: 11px; box-shadow: 0 1px 3px rgba(0,0,0,0.02); cursor: pointer;" onclick="pycmd('nous_toggle');" title="click to toggle nous sidebar">
@@ -256,11 +267,11 @@ def on_deck_browser_will_render_content(deck_browser, content):
                     <circle cx="12" cy="12" r="9" stroke="#8B7FB8" stroke-width="2" stroke-dasharray="14 6"/>
                     <text x="12" y="16" text-anchor="middle" font-family="'Satoshi',sans-serif" font-size="12" font-weight="bold" fill="#8B7FB8">n</text>
                 </svg>
-                <span style="font-weight: 400; color: #363f51;">nous anki sync</span>
+                <span style="font-weight: 500; color: #363f51;">nous anki sync</span>
                 <span style="color: #7d8ca8; font-weight: 300;">·</span>
-                <span style="color: #5FA8A3; font-weight: 400;">{hours:.1f}h logged</span>
+                <span style="color: #5FA8A3; font-weight: 500;">{hours:.1f}h logged</span>
             </div>
-            <span style="color: #5f5390; background-color: #f1eef8; border: 1px solid #e2ddf0; border-radius: 999px; padding: 2px 8px; font-size: 10px; font-weight: 400;">open sidebar →</span>
+            <span style="color: #5f5390; background-color: #f1eef8; border: 1px solid #e2ddf0; border-radius: 999px; padding: 2px 8px; font-size: 10px; font-weight: 500;">open sidebar →</span>
         </div>
         """
         if hasattr(content, "stats"):
@@ -294,52 +305,59 @@ def setup_addon():
     sound_player = NousSoundPlayer(storage_dir)
 
     # Initial stats fetch in background
-    sync_service.fetch_user_stats()
+    import threading
+    def _init_sync():
+        if sync_service.is_authenticated():
+            habit = addon_config.get("nous_habit_name", "Anki")
+            sync_service.flush_pending(habit)
+            sync_service.fetch_user_stats()
+            if dock_widget and mw and hasattr(mw, "taskman"):
+                mw.taskman.run_on_main(dock_widget._on_auth_state_updated)
+    threading.Thread(target=_init_sync, daemon=True).start()
 
-    # Create dock widget
     if mw:
-        dock_widget = NousDockWidget(mw, sync_service, notes_mgr, sound_player, addon_config)
+        dock_widget = NousDockWidget(
+            mw,
+            sync_service,
+            notes_mgr,
+            sound_player,
+            addon_config,
+            on_open_settings=open_settings_dialog,
+            on_config_changed=save_configuration
+        )
         mw.addDockWidget(Qt.DockWidgetArea.RightDockWidgetArea, dock_widget)
 
         if not addon_config.get("show_dock_on_startup", True):
             dock_widget.hide()
 
-        # Menu items under Tools
         tools_menu = mw.form.menuTools
 
-        # Settings action
         settings_action = QAction("nous anki settings…", mw)
         settings_action.triggered.connect(open_settings_dialog)
         tools_menu.addAction(settings_action)
 
-        # Toggle dock action
         toggle_action = QAction("toggle nous sidebar", mw)
         toggle_action.setShortcut(QKeySequence("Ctrl+Shift+N"))
         toggle_action.triggered.connect(toggle_dock)
         tools_menu.addAction(toggle_action)
 
-        # Explain card action
         explain_action = QAction("explain current card with nous ai", mw)
         explain_action.setShortcut(QKeySequence("Ctrl+Shift+E"))
         explain_action.triggered.connect(explain_active_card)
         tools_menu.addAction(explain_action)
 
-        # Sync action
         sync_action = QAction("sync hours to nous", mw)
         sync_action.triggered.connect(trigger_sync)
         tools_menu.addAction(sync_action)
 
-        # City action
         city_action = QAction("visit nous city 🏙️", mw)
         city_action.triggered.connect(lambda: dock_widget.open_city_link() if dock_widget else None)
         tools_menu.addAction(city_action)
 
-        # Open folder action
         folder_action = QAction("open nous folder in finder 📁", mw)
         folder_action.triggered.connect(open_nous_folder)
         tools_menu.addAction(folder_action)
 
-    # Register Anki hooks
     if gui_hooks:
         gui_hooks.reviewer_did_answer_card.append(on_card_answered)
         gui_hooks.card_will_show.append(on_card_will_show)
@@ -348,13 +366,11 @@ def setup_addon():
         gui_hooks.profile_will_close.append(on_profile_will_close)
 
 
-# Initialize hooks and startup
 if mw and gui_hooks:
     gui_hooks.profile_did_open.append(setup_addon)
     gui_hooks.top_toolbar_will_set_right_tray_content.append(on_top_toolbar_will_set_right_tray_content)
     gui_hooks.top_toolbar_did_init_links.append(on_top_toolbar_did_init_links)
     gui_hooks.deck_browser_will_render_content.append(on_deck_browser_will_render_content)
     gui_hooks.webview_did_receive_js_message.append(on_webview_message)
-    # If profile is already opened
     if hasattr(mw, "pm") and mw.pm and getattr(mw.pm, "name", None):
         setup_addon()

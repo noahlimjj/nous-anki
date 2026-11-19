@@ -1,4 +1,20 @@
 
+const SVG_CAMEL_TO_KEBAB = {
+    stopColor: "stop-color",
+    stopOpacity: "stop-opacity",
+    strokeWidth: "stroke-width",
+    strokeLinecap: "stroke-linecap",
+    strokeLinejoin: "stroke-linejoin",
+    strokeOpacity: "stroke-opacity",
+    strokeDasharray: "stroke-dasharray",
+    fillOpacity: "fill-opacity",
+    fillRule: "fill-rule",
+    clipRule: "clip-rule",
+    clipPath: "clip-path",
+    textAnchor: "text-anchor",
+    dominantBaseline: "dominant-baseline"
+};
+
 // Lightweight SVG virtual-DOM string renderer for Nous Tree Art
 const React = {
     createElement: (tag, props, ...children) => {
@@ -12,7 +28,8 @@ const React = {
                     const st = Object.entries(v).map(([sk, sv]) => sk.replace(/[A-Z]/g, m => "-" + m.toLowerCase()) + ":" + sv).join(";");
                     s += " style=\"" + st + "\"";
                 } else {
-                    s += " " + k + "=\"" + v + "\"";
+                    const attr = SVG_CAMEL_TO_KEBAB[k] || k;
+                    s += " " + attr + "=\"" + v + "\"";
                 }
             }
         }

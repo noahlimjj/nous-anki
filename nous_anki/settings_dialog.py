@@ -1,6 +1,7 @@
 """
 Settings Dialog for Nous Anki
-Allows users to configure Nous credentials, AI Search API keys, and sync options.
+Allows users to configure Nous credentials, AI Search API keys (with smart provider detection
+and per-provider key retention), and sync options.
 """
 
 from typing import Any, Callable, Dict, Optional
@@ -13,34 +14,61 @@ try:
     )
     from aqt import mw
 except ImportError:
-    class QDialog: pass
-    class QVBoxLayout: pass
-    class QHBoxLayout: pass
-    class QLabel: pass
-    class QLineEdit: pass
-    class QPushButton: pass
-    class QComboBox: pass
-    class QSpinBox: pass
-    class QGroupBox: pass
-    class QFormLayout: pass
-    class QMessageBox: pass
-    class Qt:
-        Password = None
-        Normal = None
-    mw = None
+    try:
+        from PyQt6.QtWidgets import (
+            QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit,
+            QPushButton, QComboBox, QSpinBox, QGroupBox, QFormLayout,
+            QMessageBox
+        )
+        from PyQt6.QtCore import Qt
+        mw = None
+    except ImportError:
+        class QDialog: pass
+        class QVBoxLayout: pass
+        class QHBoxLayout: pass
+        class QLabel: pass
+        class QLineEdit: pass
+        class QPushButton: pass
+        class QComboBox: pass
+        class QSpinBox: pass
+        class QGroupBox: pass
+        class QFormLayout: pass
+        class QMessageBox: pass
+        class Qt:
+            Password = None
+            Normal = None
+        mw = None
 
+from .ai_search import detect_key_provider
 from .sync import NousSyncService
-from .theme import NOUS_STYLESHEET, ensure_fonts_loaded, get_nous_stylesheet
+from .theme import ensure_fonts_loaded, get_nous_stylesheet, apply_satoshi_to_widget_tree
 
 
 class SettingsDialog(QDialog):
-    def __init__(self, parent, config: Dict[str, Any], sync_service: NousSyncService, on_saved: Optional[Callable[[Dict[str, Any]], None]] = None):
+    def __init__(
+        self,
+        parent,
+        config: Dict[str, Any],
+        sync_service: NousSyncService,
+        on_saved: Optional[Callable[[Dict[str, Any]], None]] = None
+    ):
         super().__init__(parent)
-        self.config = config
+        self.config = dict(config)
         self.sync_service = sync_service
         self.on_saved = on_saved
         self.setWindowTitle("nous anki settings")
         self.setMinimumWidth(450)
+        self._provider_keys: Dict[str, str] = {
+            "gemini": (self.config.get("gemini_api_key") or "").strip(),
+            "anthropic": (self.config.get("anthropic_api_key") or "").strip(),
+            "openai": (self.config.get("openai_api_key") or "").strip(),
+            "perplexity": (self.config.get("perplexity_api_key") or "").strip(),
+        }
+        primary_key = (self.config.get("ai_api_key") or "").strip()
+        detected = detect_key_provider(primary_key)
+        if detected and not self._provider_keys.get(detected):
+            self._provider_keys[detected] = primary_key
+
         self.setup_ui()
 
     def setup_ui(self):
@@ -54,7 +82,7 @@ class SettingsDialog(QDialog):
         nous_group = QGroupBox("nous account && sync")
         nous_form = QFormLayout(nous_group)
 
-        self.email_input = QLineEdit(self.config.get("nous_email", ""))
+        self.email_input = QLineEdit(self.config.get("nous_email", self.sync_service.cached_state.get("email", "")))
         self.email_input.setPlaceholderText("your-email@example.com")
         nous_form.addRow("nous email:", self.email_input)
 
@@ -64,15 +92,23 @@ class SettingsDialog(QDialog):
         nous_form.addRow("password:", self.password_input)
 
         self.user_id_input = QLineEdit(self.config.get("nous_user_id", self.sync_service.cached_state.get("userId", "")))
-        self.user_id_input.setPlaceholderText("auto-filled after sign-in or manual uid")
+        self.user_id_input.setPlaceholderText("auto-filled after sign-in")
         nous_form.addRow("nous user id:", self.user_id_input)
 
         test_row = QHBoxLayout()
-        self.test_conn_btn = QPushButton("sign in && test connection")
+        self.test_conn_btn = QPushButton("sign in && sync now")
         self.test_conn_btn.setProperty("class", "actionButton")
-        self.test_conn_btn.setStyleSheet("font-size: 11px; font-weight: 400; padding: 5px 12px; background-color: #f1eef8; color: #5f5390; border: 1px solid #e2ddf0; border-radius: 12px;")
+        self.test_conn_btn.setStyleSheet(
+            "font-size: 11px; font-weight: 500; padding: 5px 12px; "
+            "background-color: #f1eef8; color: #5f5390; border: 1px solid #e2ddf0; border-radius: 12px;"
+        )
         self.test_conn_btn.clicked.connect(self.test_nous_connection)
         self.conn_status_label = QLabel("")
+        if self.sync_service.is_authenticated():
+            who = self.sync_service.cached_state.get("email") or self.sync_service.cached_state.get("userId", "")
+            hrs = float(self.sync_service.cached_state.get("totalHours", 0.0))
+            self.conn_status_label.setText(f"signed in ({who} · {hrs:.1f}h)")
+            self.conn_status_label.setStyleSheet("color: #10b981; font-size: 11px; font-weight: 500;")
         test_row.addWidget(self.test_conn_btn)
         test_row.addWidget(self.conn_status_label)
         nous_form.addRow("", test_row)
@@ -92,7 +128,10 @@ class SettingsDialog(QDialog):
         folder_row = QHBoxLayout()
         self.open_folder_btn = QPushButton("open nous folder in finder 📁")
         self.open_folder_btn.setProperty("class", "actionButton")
-        self.open_folder_btn.setStyleSheet("font-size: 11px; font-weight: 400; padding: 4px 10px; background-color: #f1eef8; color: #5f5390; border: 1px solid #e2ddf0; border-radius: 12px;")
+        self.open_folder_btn.setStyleSheet(
+            "font-size: 11px; font-weight: 500; padding: 4px 10px; "
+            "background-color: #f1eef8; color: #5f5390; border: 1px solid #e2ddf0; border-radius: 12px;"
+        )
         def _open_folder():
             import os, subprocess
             subprocess.run(["open", os.path.dirname(os.path.abspath(__file__))])
@@ -103,7 +142,7 @@ class SettingsDialog(QDialog):
         layout.addWidget(nous_group)
 
         # 2. AI SEARCH & API KEY GROUP
-        ai_group = QGroupBox("ai study assistant (custom api key)")
+        ai_group = QGroupBox("ai study assistant (gemini, claude, openai)")
         ai_form = QFormLayout(ai_group)
 
         self.ai_provider_combo = QComboBox()
@@ -115,8 +154,14 @@ class SettingsDialog(QDialog):
         if hasattr(Qt, "CursorShape"):
             self.ai_provider_combo.setCursor(Qt.CursorShape.PointingHandCursor)
 
-        self.ai_provider_combo.addItems(["gemini (free tier)", "openai", "claude", "perplexity", "custom (openai-compatible)"])
-        current_prov = self.config.get("ai_provider", "gemini").lower()
+        self.ai_provider_combo.addItems([
+            "gemini (free tier)",
+            "openai",
+            "claude",
+            "perplexity",
+            "custom (openai-compatible)"
+        ])
+        current_prov = (self.config.get("ai_provider") or "gemini").lower()
         if "gemini" in current_prov:
             self.ai_provider_combo.setCurrentIndex(0)
         elif "openai" in current_prov:
@@ -130,26 +175,32 @@ class SettingsDialog(QDialog):
 
         ai_form.addRow("provider:", self.ai_provider_combo)
 
-        # Gemini Free key helper row
         gemini_help_row = QHBoxLayout()
         self.gemini_key_link_btn = QPushButton("get free gemini api key 🔑")
-        self.gemini_key_link_btn.setStyleSheet("font-size: 11px; font-weight: 400; padding: 4px 10px; background-color: #f1eef8; color: #5f5390; border: 1px solid #e2ddf0; border-radius: 12px;")
-        self.gemini_key_link_btn.clicked.connect(lambda: __import__('webbrowser').open("https://aistudio.google.com/app/apikey"))
+        self.gemini_key_link_btn.setStyleSheet(
+            "font-size: 11px; font-weight: 500; padding: 4px 10px; "
+            "background-color: #f1eef8; color: #5f5390; border: 1px solid #e2ddf0; border-radius: 12px;"
+        )
+        self.gemini_key_link_btn.clicked.connect(
+            lambda: __import__("webbrowser").open("https://aistudio.google.com/app/apikey")
+        )
         gemini_help_row.addWidget(self.gemini_key_link_btn)
         ai_form.addRow("", gemini_help_row)
 
         self.api_key_input = QLineEdit(self.config.get("ai_api_key", ""))
         self.api_key_input.setEchoMode(QLineEdit.EchoMode.Password)
-        self.api_key_input.setPlaceholderText("AIzaSy... (gemini) or sk-... (openai)")
+        self.api_key_input.setPlaceholderText("AIzaSy... (gemini), sk-ant-... (claude), or sk-... (openai)")
         ai_form.addRow("api key:", self.api_key_input)
 
-        self.ai_model_input = QLineEdit(self.config.get("ai_model", "gemini-1.5-flash"))
-        self.ai_model_input.setPlaceholderText("gemini-1.5-flash / gpt-4o-mini / sonar")
+        self.ai_model_input = QLineEdit(self.config.get("ai_model", "gemini-2.5-flash"))
+        self.ai_model_input.setPlaceholderText("gemini-2.5-flash / claude-haiku-4-5 / gpt-4o-mini")
         ai_form.addRow("model name:", self.ai_model_input)
 
         self.ai_base_url_input = QLineEdit(self.config.get("ai_base_url", ""))
         self.ai_base_url_input.setPlaceholderText("optional: http://localhost:11434/v1 or openrouter")
         ai_form.addRow("custom base url:", self.ai_base_url_input)
+
+        self.ai_provider_combo.currentIndexChanged.connect(self._on_provider_combo_changed)
 
         layout.addWidget(ai_group)
 
@@ -159,17 +210,44 @@ class SettingsDialog(QDialog):
 
         self.cancel_btn = QPushButton("cancel")
         self.cancel_btn.setProperty("class", "actionButton")
-        self.cancel_btn.setStyleSheet("background-color: #f1eef8; color: #5f5390; font-family: 'Satoshi', sans-serif; font-weight: 400; font-size: 11px; border: 1px solid #e2ddf0; border-radius: 14px; padding: 6px 16px;")
+        self.cancel_btn.setStyleSheet(
+            "background-color: #f1eef8; color: #5f5390; font-weight: 500; "
+            "font-size: 11px; border: 1px solid #e2ddf0; border-radius: 13px; padding: 6px 16px;"
+        )
         self.cancel_btn.clicked.connect(self.reject)
         btn_row.addWidget(self.cancel_btn)
 
         self.save_btn = QPushButton("save settings")
         self.save_btn.setProperty("class", "primaryButton")
-        self.save_btn.setStyleSheet("background-color: #8B7FB8; color: white; font-family: 'Satoshi', sans-serif; font-weight: 400; font-size: 11px; padding: 6px 18px; border-radius: 14px; border: none;")
+        self.save_btn.setStyleSheet(
+            "background-color: #8B7FB8; color: white; font-weight: 500; "
+            "font-size: 11px; padding: 6px 18px; border-radius: 13px; border: none;"
+        )
         self.save_btn.clicked.connect(self.save_and_close)
         btn_row.addWidget(self.save_btn)
 
         layout.addLayout(btn_row)
+        apply_satoshi_to_widget_tree(self)
+
+    def _on_provider_combo_changed(self, idx: int):
+        # Preserve any key typed before switching
+        cur_typed = self.api_key_input.text().strip()
+        det = detect_key_provider(cur_typed)
+        if det:
+            self._provider_keys[det] = cur_typed
+
+        provider_map = {0: "gemini", 1: "openai", 2: "anthropic", 3: "perplexity", 4: "custom"}
+        default_models = {
+            "gemini": "gemini-2.5-flash",
+            "openai": "gpt-4o-mini",
+            "anthropic": "claude-haiku-4-5",
+            "perplexity": "sonar",
+        }
+        chosen = provider_map.get(idx, "gemini")
+        if chosen in self._provider_keys and self._provider_keys[chosen]:
+            self.api_key_input.setText(self._provider_keys[chosen])
+        if chosen in default_models:
+            self.ai_model_input.setText(default_models[chosen])
 
     def test_nous_connection(self):
         email = self.email_input.text().strip()
@@ -187,11 +265,12 @@ class SettingsDialog(QDialog):
         if res.get("success"):
             uid = res.get("userId", "")
             self.user_id_input.setText(uid)
-            # Fetch latest stats
+            habit = self.habit_input.text().strip() or "Anki"
+            self.sync_service.flush_pending(habit)
             stats_res = self.sync_service.fetch_user_stats()
             hours = stats_res.get("totalHours", 0.0)
             self.conn_status_label.setText(f"connected ({hours:.1f}h)")
-            self.conn_status_label.setStyleSheet("color: #10b981; font-size: 11px; font-weight: 400;")
+            self.conn_status_label.setStyleSheet("color: #10b981; font-size: 11px; font-weight: 500;")
         else:
             err = res.get("error", "failed")
             self.conn_status_label.setText(f"{err}")
@@ -206,8 +285,33 @@ class SettingsDialog(QDialog):
             4: "custom"
         }
         chosen_provider = provider_map.get(self.ai_provider_combo.currentIndex(), "gemini")
+        entered_key = self.api_key_input.text().strip()
+        entered_model = self.ai_model_input.text().strip()
 
-        updated_config = {
+        # Smart key prefix detection: store under matching provider without wiping other providers' keys
+        detected_prov = detect_key_provider(entered_key)
+        if detected_prov:
+            self._provider_keys[detected_prov] = entered_key
+            # If user pasted a Claude key while dropdown was still on Gemini (or vice versa), align provider & model
+            if detected_prov != chosen_provider and chosen_provider != "custom":
+                chosen_provider = detected_prov
+                if detected_prov == "anthropic" and ("gemini" in entered_model.lower() or not entered_model):
+                    entered_model = "claude-haiku-4-5"
+                elif detected_prov == "gemini" and ("claude" in entered_model.lower() or not entered_model):
+                    entered_model = "gemini-2.5-flash"
+                elif detected_prov == "openai" and ("gemini" in entered_model.lower() or "claude" in entered_model.lower() or not entered_model):
+                    entered_model = "gpt-4o-mini"
+        elif entered_key and chosen_provider in self._provider_keys:
+            self._provider_keys[chosen_provider] = entered_key
+
+        # Upgrade retired Claude 3.5 model slugs if entered
+        if chosen_provider == "anthropic" and entered_model in ("claude-3-5-haiku-20241022", "claude-3-5-haiku-latest"):
+            entered_model = "claude-haiku-4-5"
+        elif chosen_provider == "anthropic" and entered_model in ("claude-3-5-sonnet-20241022", "claude-3-5-sonnet-latest"):
+            entered_model = "claude-sonnet-4-5"
+
+        updated_config = dict(self.config)
+        updated_config.update({
             "nous_email": self.email_input.text().strip(),
             "nous_password": self.password_input.text(),
             "nous_user_id": self.user_id_input.text().strip(),
@@ -215,12 +319,15 @@ class SettingsDialog(QDialog):
             "nous_city_url": self.city_url_input.text().strip() or "https://nous.study/city",
             "sync_interval_seconds": self.sync_interval_spin.value(),
             "ai_provider": chosen_provider,
-            "ai_api_key": self.api_key_input.text().strip(),
-            "ai_model": self.ai_model_input.text().strip(),
+            "ai_api_key": entered_key,
+            "ai_model": entered_model or "gemini-2.5-flash",
             "ai_base_url": self.ai_base_url_input.text().strip(),
-        }
+            "gemini_api_key": self._provider_keys.get("gemini", ""),
+            "anthropic_api_key": self._provider_keys.get("anthropic", ""),
+            "openai_api_key": self._provider_keys.get("openai", ""),
+            "perplexity_api_key": self._provider_keys.get("perplexity", ""),
+        })
 
-        # Update cached state userId if entered manually
         if updated_config["nous_user_id"]:
             self.sync_service.cached_state["userId"] = updated_config["nous_user_id"]
             self.sync_service._save_state()

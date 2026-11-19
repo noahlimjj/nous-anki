@@ -218,6 +218,43 @@ class TestComprehensiveFeatures(unittest.TestCase):
             self.assertIn("api.anthropic.com/v1/messages", called_req.full_url)
             self.assertEqual(called_req.headers.get("X-api-key"), "sk-ant-mockKey")
 
+    def test_smart_claude_key_detection_and_model_sync(self):
+        # When user pastes a sk-ant- key into Settings while provider was still on Gemini,
+        # SettingsDialog auto-detects Anthropic, keeps previous Gemini key, and dock syncs model combo to Claude Haiku
+        saved_cfg = {}
+        dialog = SettingsDialog(None, self.config, self.sync_service, on_saved=lambda c: saved_cfg.update(c))
+        dialog.api_key_input.setText("sk-ant-api03-testClaudeKey123")
+        dialog.save_and_close()
+
+        self.assertEqual(saved_cfg.get("ai_provider"), "anthropic")
+        self.assertEqual(saved_cfg.get("anthropic_api_key"), "sk-ant-api03-testClaudeKey123")
+        self.assertEqual(saved_cfg.get("gemini_api_key"), "AIzaSyTestMockKey")
+        self.assertEqual(saved_cfg.get("ai_model"), "claude-haiku-4-5")
+
+        parent = QMainWindow()
+        dock = NousDockWidget(parent, self.sync_service, self.notes_mgr, self.sound_player, saved_cfg)
+        prov, model = dock.get_selected_model_and_provider()
+        self.assertEqual(prov, "anthropic")
+        self.assertEqual(model, "claude-haiku-4-5")
+
+    def test_web_auth_token_capture_and_account_card(self):
+        parent = QMainWindow()
+        dock = NousDockWidget(parent, self.sync_service, self.notes_mgr, self.sound_player, self.config)
+        self.assertFalse(self.sync_service.is_authenticated())
+
+        with patch.object(self.sync_service, "process_and_sync") as mock_sync:
+            dock._on_web_auth_detected({
+                "uid": "uid_google_123",
+                "email": "student@nous.study",
+                "idToken": "eyMockIdToken",
+                "refreshToken": "mockRefreshToken",
+                "expirationTime": 1999999999000
+            })
+            self.assertTrue(self.sync_service.is_authenticated())
+            self.assertEqual(self.sync_service.cached_state["userId"], "uid_google_123")
+            self.assertEqual(self.sync_service.cached_state["email"], "student@nous.study")
+            mock_sync.assert_called_once()
+
     # 4. EMBEDDED BROWSER AND QUICK LINKS
     def test_embedded_browser_features(self):
         browser = NousEmbeddedBrowser(None, home_url="https://nous.study/city")
@@ -322,6 +359,7 @@ class TestComprehensiveFeatures(unittest.TestCase):
     def test_dock_widget_user_actions(self):
         parent = QMainWindow()
         dock = NousDockWidget(parent, self.sync_service, self.notes_mgr, self.sound_player, self.config)
+        parent.show()
 
         # Test model dropdown switching to custom
         custom_idx = dock.model_combo.findText("custom (any model)", Qt.MatchFlag.MatchContains)
