@@ -143,7 +143,15 @@ except ImportError:
         mw = None
 
 from . import tree
-from .ai_search import AISearchClient, POPULAR_MODELS, detect_key_provider, infer_provider_from_model
+from .ai_search import (
+    AISearchClient,
+    POPULAR_MODELS,
+    detect_key_provider,
+    infer_provider_from_model,
+    looks_like_model_name,
+    normalize_model_name,
+    sanitize_ai_config,
+)
 from .browser_view import NousEmbeddedBrowser
 from .notes import NotesManager
 from .sound import NousSoundPlayer
@@ -216,7 +224,7 @@ class NousDockWidget(QDockWidget):
         self.sync_service = sync_service
         self.notes_mgr = notes_mgr
         self.sound = sound_player
-        self.config = dict(config)
+        self.config = sanitize_ai_config(config)
         self.on_open_settings = on_open_settings
         self.on_config_changed = on_config_changed
         self.current_card = None
@@ -250,9 +258,10 @@ class NousDockWidget(QDockWidget):
 
     def apply_config(self, new_config: Dict[str, Any]):
         """Updates dock widget state and AI client when settings are saved."""
-        self.config = dict(new_config)
+        self.config = sanitize_ai_config(new_config)
         self.ai_client.set_config_keys(self.config)
         self.sync_model_combo_from_config()
+        self._refresh_inline_key_bar()
         self.refresh_account_card()
         self.refresh_tree_display()
 
@@ -509,15 +518,42 @@ class NousDockWidget(QDockWidget):
         for label, prov, mname in POPULAR_MODELS:
             self.model_combo.addItem(label, userData=(prov, mname))
 
+        self.toggle_key_bar_btn = QPushButton("🔑")
+        self.toggle_key_bar_btn.setProperty("class", "iconButton")
+        self.toggle_key_bar_btn.setToolTip("Paste or change API key for this model")
+        self.toggle_key_bar_btn.clicked.connect(self._toggle_inline_key_bar)
+
         self.custom_model_input = QLineEdit()
         self.custom_model_input.setPlaceholderText("any custom model (e.g. claude-haiku-4-5, gpt-4o)…")
         self.custom_model_input.hide()
+
+        # Inline quick API key bar (auto-shown when no key is set for the chosen provider)
+        self.quick_key_box = QWidget()
+        qk_layout = QHBoxLayout(self.quick_key_box)
+        qk_layout.setContentsMargins(0, 0, 0, 0)
+        qk_layout.setSpacing(4)
+        self.inline_key_input = QLineEdit()
+        self.inline_key_input.setPlaceholderText("paste claude key (sk-ant-...) or gemini key (AIza...)…")
+        try:
+            self.inline_key_input.setEchoMode(QLineEdit.EchoMode.Password)
+            self.inline_key_input.returnPressed.connect(self.save_inline_api_key)
+        except Exception:
+            pass
+        self.inline_key_save_btn = QPushButton("save key")
+        self.inline_key_save_btn.setProperty("class", "actionButton")
+        self.inline_key_save_btn.clicked.connect(self.save_inline_api_key)
+        qk_layout.addWidget(self.inline_key_input, 1)
+        qk_layout.addWidget(self.inline_key_save_btn)
+        self.quick_key_box.hide()
+
         self.model_combo.currentIndexChanged.connect(self._on_model_combo_changed)
 
         model_row.addWidget(model_label)
         model_row.addWidget(self.model_combo, 1)
+        model_row.addWidget(self.toggle_key_bar_btn)
         ai_layout.addLayout(model_row)
         ai_layout.addWidget(self.custom_model_input)
+        ai_layout.addWidget(self.quick_key_box)
 
         q_row = QHBoxLayout()
         q_row.setSpacing(5)
@@ -764,19 +800,15 @@ class NousDockWidget(QDockWidget):
         prov = (self.config.get("ai_provider") or "gemini").lower()
         if "claude" in prov:
             prov = "anthropic"
-        model_name = (self.config.get("ai_model") or "").strip()
+        model_name = normalize_model_name(self.config.get("ai_model") or "", prov)
 
         # If only a Claude key is configured and provider was left on default, prefer Claude Haiku
         primary_kind = detect_key_provider(self.config.get("ai_api_key", ""))
-        if primary_kind == "anthropic" and not self.config.get("gemini_api_key"):
-            prov = "anthropic"
-            if "claude" not in model_name.lower():
-                model_name = "claude-haiku-4-5"
-
-        if model_name in ("claude-3-5-haiku-20241022", "claude-3-5-haiku-latest"):
-            model_name = "claude-haiku-4-5"
-        elif model_name in ("claude-3-5-sonnet-20241022", "claude-3-5-sonnet-latest"):
-            model_name = "claude-sonnet-4-5"
+        if (primary_kind == "anthropic" or self.config.get("anthropic_api_key")) and not self.config.get("gemini_api_key"):
+            if prov == "gemini":
+                prov = "anthropic"
+                if "claude" not in model_name.lower():
+                    model_name = "claude-haiku-4-5"
 
         try:
             cnt = self.model_combo.count()
@@ -785,15 +817,18 @@ class NousDockWidget(QDockWidget):
                 data = self.model_combo.itemData(i)
                 if data and data[1] == model_name and model_name:
                     self.model_combo.setCurrentIndex(i)
+                    self._refresh_inline_key_bar()
                     return
             # 2. Provider match
             for i in range(cnt):
                 data = self.model_combo.itemData(i)
                 if data and data[0] == prov:
                     self.model_combo.setCurrentIndex(i)
+                    self._refresh_inline_key_bar()
                     return
         except Exception:
             pass
+        self._refresh_inline_key_bar()
 
     def _on_model_combo_changed(self, idx: int):
         data = self.model_combo.currentData()
@@ -802,6 +837,76 @@ class NousDockWidget(QDockWidget):
             self.custom_model_input.show()
         else:
             self.custom_model_input.hide()
+        self._refresh_inline_key_bar()
+
+    def _toggle_inline_key_bar(self):
+        if hasattr(self, "quick_key_box"):
+            if self.quick_key_box.isVisible():
+                self.quick_key_box.hide()
+            else:
+                self._refresh_inline_key_bar(force_show=True)
+
+    def _refresh_inline_key_bar(self, force_show: bool = False):
+        if not hasattr(self, "quick_key_box"):
+            return
+        prov, model_name = self.get_selected_model_and_provider()
+        placeholders = {
+            "anthropic": "paste claude api key (starts with sk-ant-...)…",
+            "gemini": "paste gemini api key (starts with AIza...)…",
+            "openai": "paste openai api key (starts with sk-...)…",
+            "perplexity": "paste perplexity api key (starts with pplx-...)…",
+        }
+        self.inline_key_input.setPlaceholderText(placeholders.get(prov, "paste api key…"))
+        _, _, key, err = self.ai_client._resolve_execution(prov, model_name)
+        if force_show or not key or err:
+            self.quick_key_box.show()
+        else:
+            self.quick_key_box.hide()
+
+    def save_inline_api_key(self) -> bool:
+        """Saves an API key pasted directly into the AI tab's inline key bar."""
+        raw = self.inline_key_input.text().strip()
+        if not raw:
+            return False
+
+        if looks_like_model_name(raw):
+            norm = normalize_model_name(raw)
+            inferred = infer_provider_from_model(norm, "anthropic")
+            self.config["ai_provider"] = inferred
+            self.config["ai_model"] = norm
+            self.inline_key_input.setText("")
+            self.sync_model_combo_from_config()
+            self.ai_result_view.setHtml(
+                f"<span style='color: #d97706;'><b>{html.escape(raw)}</b> is a model name (switched model to "
+                f"<b>{html.escape(norm)}</b>). Now paste your <b>{inferred.title()} API key</b> "
+                f"(e.g. <code>sk-ant-...</code>) into the key box above.</span>"
+            )
+            return False
+
+        prov, _ = self.get_selected_model_and_provider()
+        detected = detect_key_provider(raw)
+        target_prov = detected or prov
+        self.config["ai_api_key"] = raw
+        self.config[f"{target_prov}_api_key"] = raw
+        if detected and detected != prov:
+            self.config["ai_provider"] = detected
+            if detected == "anthropic":
+                self.config["ai_model"] = "claude-haiku-4-5"
+            elif detected == "gemini":
+                self.config["ai_model"] = "gemini-2.5-flash"
+            elif detected == "openai":
+                self.config["ai_model"] = "gpt-4o-mini"
+        self.config.pop("_misplaced_model_in_key", None)
+        self.inline_key_input.setText("")
+        self.ai_client.set_config_keys(self.config)
+        self.sync_model_combo_from_config()
+        if self.on_config_changed:
+            self.on_config_changed(self.config)
+        self.quick_key_box.hide()
+        self.ai_result_view.setHtml(
+            f"<span style='color: #10b981; font-weight: 500;'>✓ saved {html.escape(target_prov.title())} API key — ready to ask!</span>"
+        )
+        return True
 
     def get_selected_model_and_provider(self):
         data = self.model_combo.currentData()
@@ -809,10 +914,23 @@ class NousDockWidget(QDockWidget):
             return "gemini", "gemini-2.5-flash"
         prov, mname = data
         if prov == "custom":
-            custom_name = self.custom_model_input.text().strip() or "gpt-4o-mini"
-            inferred_prov = infer_provider_from_model(custom_name, "openai")
-            return inferred_prov, custom_name
-        return prov, mname
+            custom_raw = self.custom_model_input.text().strip()
+            # If user pasted an API key into the custom model input box, capture it gracefully
+            detected_key_prov = detect_key_provider(custom_raw)
+            if detected_key_prov:
+                self.config["ai_api_key"] = custom_raw
+                self.config[f"{detected_key_prov}_api_key"] = custom_raw
+                self.ai_client.set_config_keys(self.config)
+                default_m = "claude-haiku-4-5" if detected_key_prov == "anthropic" else (
+                    "gemini-2.5-flash" if detected_key_prov == "gemini" else "gpt-4o-mini"
+                )
+                return detected_key_prov, default_m
+
+            fallback_model = self.config.get("ai_model") or "gpt-4o-mini"
+            custom_name = custom_raw or fallback_model
+            inferred_prov = infer_provider_from_model(custom_name, self.config.get("ai_provider") or "openai")
+            return inferred_prov, normalize_model_name(custom_name, inferred_prov)
+        return prov, normalize_model_name(mname, prov)
 
     # ---------------- Tree & City Logic ----------------
 
@@ -938,8 +1056,19 @@ class NousDockWidget(QDockWidget):
             self.ai_result_view.setHtml(f"<i>could not read card: {e}</i>")
 
     def run_ai_search(self):
+        # If user pasted an API key into the inline key box and pressed Ask directly, save it first
+        if hasattr(self, "inline_key_input") and self.inline_key_input.text().strip():
+            self.save_inline_api_key()
+
         query = self.ai_input.text().strip()
         if not query:
+            return
+
+        # If user accidentally pasted their API key into the question input box
+        if detect_key_provider(query) is not None and " " not in query:
+            self.inline_key_input.setText(query)
+            self.ai_input.setText("")
+            self.save_inline_api_key()
             return
 
         prov, model_name = self.get_selected_model_and_provider()

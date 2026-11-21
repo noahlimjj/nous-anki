@@ -237,6 +237,46 @@ class TestComprehensiveFeatures(unittest.TestCase):
         self.assertEqual(prov, "anthropic")
         self.assertEqual(model, "claude-haiku-4-5")
 
+    def test_model_name_typed_in_api_key_field_recovery(self):
+        # Reproduces the exact user error: 'claude-haiku-5-5' entered in API key field
+        bad_cfg = dict(self.config)
+        bad_cfg["ai_provider"] = "openai"
+        bad_cfg["ai_api_key"] = "claude-haiku-5-5"
+        bad_cfg["ai_model"] = "gpt-4o-mini"
+        bad_cfg["gemini_api_key"] = ""
+        bad_cfg["anthropic_api_key"] = ""
+
+        client = AISearchClient()
+        client.set_config_keys(bad_cfg)
+        res = client.search_query("Explain Starling forces")
+        self.assertFalse(res["success"])
+        # Must NEVER send 'claude-haiku-5-5' as a Bearer token to OpenAI!
+        self.assertIn("is a model name, not an API key", res["error"])
+        self.assertIn("sk-ant-", res["error"])
+
+        # And if the user had previously saved a valid Claude key (or swapped fields), it auto-recovers and calls Anthropic with claude-haiku-4-5
+        swapped_cfg = dict(bad_cfg)
+        swapped_cfg["ai_api_key"] = "claude-haiku-5-5"
+        swapped_cfg["ai_model"] = "sk-ant-api03-validClaudeKey"
+        dialog = SettingsDialog(None, swapped_cfg, self.sync_service)
+        saved_after = {}
+        dialog.on_saved = lambda c: saved_after.update(c)
+        dialog.save_and_close()
+        self.assertEqual(saved_after["ai_provider"], "anthropic")
+        self.assertEqual(saved_after["ai_model"], "claude-haiku-4-5")
+        self.assertEqual(saved_after["ai_api_key"], "sk-ant-api03-validClaudeKey")
+        self.assertEqual(saved_after["anthropic_api_key"], "sk-ant-api03-validClaudeKey")
+
+        # Also test inline quick key box in AI tab
+        parent = QMainWindow()
+        dock = NousDockWidget(parent, self.sync_service, self.notes_mgr, self.sound_player, bad_cfg)
+        dock.inline_key_input.setText("sk-ant-api03-inlineKey999")
+        self.assertTrue(dock.save_inline_api_key())
+        self.assertEqual(dock.config["anthropic_api_key"], "sk-ant-api03-inlineKey999")
+        prov, model = dock.get_selected_model_and_provider()
+        self.assertEqual(prov, "anthropic")
+        self.assertEqual(model, "claude-haiku-4-5")
+
     def test_web_auth_token_capture_and_account_card(self):
         parent = QMainWindow()
         dock = NousDockWidget(parent, self.sync_service, self.notes_mgr, self.sound_player, self.config)

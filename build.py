@@ -16,10 +16,10 @@ def build_package():
 
     print(f"[Build] Packaging {source_dir} -> {output_filename}...")
 
-    # Exclude __pycache__, .DS_Store, and user_files from package
+    # Exclude __pycache__, .DS_Store, meta.json, and user_files from package
     def should_include(relpath):
         parts = relpath.split(os.sep)
-        if any(p.startswith(".") or p == "__pycache__" or p == "user_files" for p in parts):
+        if any(p.startswith(".") or p == "__pycache__" or p == "user_files" or p == "meta.json" for p in parts):
             return False
         return True
 

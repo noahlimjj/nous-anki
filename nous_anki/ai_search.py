@@ -58,6 +58,64 @@ def detect_key_provider(api_key: str) -> Optional[str]:
     return None
 
 
+def looks_like_model_name(val: str) -> bool:
+    """Returns True if val looks like a model name (e.g. 'claude-haiku-5-5') rather than an API key."""
+    s = (val or "").strip()
+    if not s:
+        return False
+    if detect_key_provider(s) is not None:
+        return False
+    low = s.lower()
+    model_prefixes = (
+        "claude-", "claude_", "claude ",
+        "gemini-", "gemini_", "gemini ",
+        "gpt-", "gpt4", "gpt3",
+        "o1-", "o3-", "o4-",
+        "sonar", "deepseek-", "deepseek ",
+        "llama-", "llama3", "llama2",
+        "mistral-", "mixtral-", "qwen-", "ollama/"
+    )
+    if low.startswith(model_prefixes):
+        return True
+    exact_models = {
+        "claude", "haiku", "sonnet", "opus",
+        "claude haiku", "claude sonnet", "claude opus",
+        "gemini", "gemini flash", "gemini pro",
+        "gpt-4o", "gpt-4o-mini", "gpt-4", "o1", "o3", "deepseek"
+    }
+    if low in exact_models:
+        return True
+    return False
+
+
+def normalize_model_name(model_name: str, provider: str = "") -> str:
+    """Normalizes user-entered or legacy model slugs (e.g. claude-haiku-5-5 -> claude-haiku-4-5)."""
+    raw = (model_name or "").strip()
+    if not raw:
+        return ""
+    low = raw.lower()
+    prov = (provider or "").lower()
+
+    if "claude" in low or "haiku" in low or "sonnet" in low or "opus" in low or prov in ("anthropic", "claude"):
+        if "haiku" in low:
+            return "claude-haiku-4-5"
+        if "sonnet" in low:
+            if any(tag in low for tag in ("5-5", "5.5", "3-5", "3.5", "3-7", "3.7")) or low in ("sonnet", "claude-sonnet", "claude sonnet"):
+                return "claude-sonnet-4-5"
+            return raw
+        if "opus" in low:
+            if any(tag in low for tag in ("5-5", "5.5", "3-")) or low in ("opus", "claude-opus", "claude opus"):
+                return "claude-opus-4-5"
+            return raw
+        if low == "claude":
+            return "claude-haiku-4-5"
+
+    if low in ("gemini-2.0-flash", "gemini-1.5-flash", "gemini-2.5-flash-lite", "gemini", "gemini flash"):
+        return "gemini-2.5-flash"
+
+    return raw
+
+
 def infer_provider_from_model(model_name: str, default_provider: str = "openai") -> str:
     """Infers the API provider from a model name string."""
     m = (model_name or "").strip().lower()
@@ -72,6 +130,51 @@ def infer_provider_from_model(model_name: str, default_provider: str = "openai")
     return default_provider
 
 
+def sanitize_ai_config(config: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Recovers gracefully if a user typed a model name (like 'claude-haiku-5-5')
+    into the API key field or swapped the API Key and Model Name fields.
+    """
+    cfg = dict(config)
+    raw_key = (cfg.get("ai_api_key") or "").strip()
+    raw_model = (cfg.get("ai_model") or "").strip()
+
+    # Case 1: User swapped API key and Model Name fields
+    if looks_like_model_name(raw_key) and detect_key_provider(raw_model) is not None:
+        raw_key, raw_model = raw_model, raw_key
+        cfg["ai_api_key"] = raw_key
+        cfg["ai_model"] = raw_model
+
+    # Case 2: User typed a model name (e.g. 'claude-haiku-5-5') into the API key field
+    if looks_like_model_name(raw_key):
+        inferred_prov = infer_provider_from_model(raw_key, cfg.get("ai_provider") or "anthropic")
+        cfg["ai_provider"] = inferred_prov
+        cfg["ai_model"] = normalize_model_name(raw_key, inferred_prov)
+        cfg["_misplaced_model_in_key"] = raw_key
+        # Restore any valid saved key for that provider, else clear the bogus key
+        saved_prov_key = (cfg.get(f"{inferred_prov}_api_key") or "").strip()
+        if saved_prov_key and not looks_like_model_name(saved_prov_key):
+            cfg["ai_api_key"] = saved_prov_key
+        else:
+            cfg["ai_api_key"] = ""
+
+    # Clean per-provider key slots if a model name ever leaked into them
+    for field in ("gemini_api_key", "anthropic_api_key", "openai_api_key", "perplexity_api_key"):
+        val = (cfg.get(field) or "").strip()
+        if looks_like_model_name(val):
+            cfg[field] = ""
+
+    # Normalize model name
+    prov = (cfg.get("ai_provider") or "gemini").lower()
+    if "claude" in prov:
+        prov = "anthropic"
+        cfg["ai_provider"] = "anthropic"
+    if cfg.get("ai_model"):
+        cfg["ai_model"] = normalize_model_name(cfg["ai_model"], prov)
+
+    return cfg
+
+
 class AISearchClient:
     def __init__(
         self,
@@ -82,23 +185,29 @@ class AISearchClient:
         api_keys: Optional[Dict[str, str]] = None
     ):
         self.provider = (provider or "openai").lower()
+        if "claude" in self.provider:
+            self.provider = "anthropic"
         self.api_key = (api_key or "").strip()
         self.model = (model or "").strip()
         self.base_url = (base_url or "").strip()
+        self._misplaced_model_in_key: str = ""
         self.api_keys: Dict[str, str] = {}
         if api_keys:
             for k, v in api_keys.items():
-                if v and str(v).strip():
-                    self.api_keys[k.lower()] = str(v).strip()
+                s = str(v).strip() if v else ""
+                if s and not looks_like_model_name(s):
+                    self.api_keys[k.lower()] = s
 
     def set_config_keys(self, config: Dict[str, Any]):
         """Updates provider, primary key, and per-provider keys from addon config."""
-        self.provider = (config.get("ai_provider") or self.provider or "gemini").lower()
+        clean = sanitize_ai_config(config)
+        self._misplaced_model_in_key = clean.get("_misplaced_model_in_key", "")
+        self.provider = (clean.get("ai_provider") or self.provider or "gemini").lower()
         if "claude" in self.provider:
             self.provider = "anthropic"
-        self.api_key = (config.get("ai_api_key") or "").strip()
-        self.model = (config.get("ai_model") or "").strip()
-        self.base_url = (config.get("ai_base_url") or "").strip()
+        self.api_key = (clean.get("ai_api_key") or "").strip()
+        self.model = (clean.get("ai_model") or "").strip()
+        self.base_url = (clean.get("ai_base_url") or "").strip()
 
         self.api_keys = {}
         for p_name, cfg_field in [
@@ -107,8 +216,8 @@ class AISearchClient:
             ("openai", "openai_api_key"),
             ("perplexity", "perplexity_api_key"),
         ]:
-            val = (config.get(cfg_field) or "").strip()
-            if val:
+            val = (clean.get(cfg_field) or "").strip()
+            if val and not looks_like_model_name(val):
                 self.api_keys[p_name] = val
 
         # Also classify primary ai_api_key by prefix so switching models never loses it
@@ -123,24 +232,40 @@ class AISearchClient:
     ) -> Tuple[str, str, str, Optional[str]]:
         """
         Resolves (provider, model_name, api_key, error_message).
-        Prevents sending a Claude key to Gemini or vice versa.
+        Prevents sending a Claude key to Gemini or vice versa, and catches model names
+        accidentally typed into the API key field.
         """
         prov = (override_provider or self.provider or "openai").lower()
         if "claude" in prov:
             prov = "anthropic"
         model_name = (override_model or self.model or "").strip()
 
+        # Check if self.api_key and self.model were swapped directly on the client
+        primary = (self.api_key or "").strip()
+        if looks_like_model_name(primary) and detect_key_provider(model_name) is not None:
+            primary, model_name = model_name, primary
+            self.api_key = primary
+            self.model = model_name
+
+        misplaced_model = self._misplaced_model_in_key
+        if looks_like_model_name(primary):
+            misplaced_model = primary
+            if not model_name or model_name in ("gpt-4o-mini", "gemini-2.5-flash"):
+                model_name = primary
+            prov = infer_provider_from_model(model_name, prov)
+            primary = ""
+
         if model_name:
             inferred = infer_provider_from_model(model_name, prov)
-            if prov == "custom":
+            if prov == "custom" or inferred in ("anthropic", "gemini", "perplexity"):
                 prov = inferred
+            model_name = normalize_model_name(model_name, prov)
 
         # 1. Check if we have a dedicated key for the requested provider
-        if prov in self.api_keys and self.api_keys[prov]:
+        if prov in self.api_keys and self.api_keys[prov] and not looks_like_model_name(self.api_keys[prov]):
             return prov, model_name, self.api_keys[prov], None
 
         # 2. Check primary self.api_key
-        primary = (self.api_key or "").strip()
         primary_kind = detect_key_provider(primary)
 
         if primary:
@@ -152,7 +277,7 @@ class AISearchClient:
             # Case A: User only configured a Claude key (sk-ant-...) and dropdown was still on default Gemini
             if primary_kind == "anthropic" and prov == "gemini" and "gemini" not in self.api_keys:
                 auto_model = model_name if "claude" in model_name.lower() else "claude-haiku-4-5"
-                return "anthropic", auto_model, primary, None
+                return "anthropic", normalize_model_name(auto_model, "anthropic"), primary, None
 
             # Case B: User explicitly selected Claude/OpenAI in dropdown, but only a Gemini key is in config
             p_labels = {
@@ -169,7 +294,23 @@ class AISearchClient:
                 "",
                 f"You selected a {prov.title()} model ({model_name or prov}), "
                 f"but the configured key is for {have_desc}. "
-                f"Open settings (⚙️) to add your {needed_desc} key, or switch the model dropdown."
+                f"Paste your {needed_desc} key into the 🔑 key box above or in ⚙️ Settings."
+            )
+
+        # If a model name (like 'claude-haiku-5-5') was typed into the API key field
+        if misplaced_model:
+            key_hint = {
+                "anthropic": "Claude API key (starts with sk-ant-...)",
+                "gemini": "Gemini API key (starts with AIza...)",
+                "openai": "OpenAI API key (starts with sk-...)",
+                "perplexity": "Perplexity API key (starts with pplx-...)",
+            }.get(prov, f"{prov.title()} API key")
+            return (
+                prov,
+                model_name,
+                "",
+                f"'{misplaced_model}' is a model name, not an API key. "
+                f"Paste your {key_hint} in the 🔑 API key box above or in ⚙️ Settings."
             )
 
         # 3. Check if any key exists in api_keys
@@ -180,14 +321,14 @@ class AISearchClient:
                 model_name,
                 "",
                 f"No API key configured for {prov.title()}. "
-                f"Open settings (⚙️) to add your {prov.title()} key or switch the model dropdown to {only_prov.title()}."
+                f"Paste your {prov.title()} key in the 🔑 box above, or switch the model dropdown to {only_prov.title()}."
             )
 
         return (
             prov,
             model_name,
             "",
-            "No API key configured. Click ⚙️ Settings to add your Gemini, Claude, or OpenAI API key."
+            "No API key configured. Paste your Gemini (AIza...), Claude (sk-ant-...), or OpenAI (sk-...) key in the 🔑 box above or click ⚙️ Settings."
         )
 
     def search_query(
@@ -326,6 +467,7 @@ class AISearchClient:
 
     def _call_anthropic(self, query: str, model_name: str, api_key: str) -> Dict[str, Any]:
         endpoint = "https://api.anthropic.com/v1/messages"
+        model_name = normalize_model_name(model_name, "anthropic") or "claude-haiku-4-5"
 
         def make_req(target_model: str):
             payload = {
@@ -351,8 +493,8 @@ class AISearchClient:
             with urllib.request.urlopen(make_req(model_name), timeout=25) as resp:
                 data = json.loads(resp.read().decode("utf-8"))
         except urllib.error.HTTPError as e:
-            # Automatically upgrade retired Claude 3.5 model IDs to Claude 4.5 on 404
-            if e.code == 404 and model_name not in ("claude-haiku-4-5", "claude-sonnet-4-5"):
+            # Automatically upgrade retired or unrecognized Claude model IDs to Claude 4.5 on 404/400
+            if e.code in (400, 404) and model_name not in ("claude-haiku-4-5", "claude-sonnet-4-5"):
                 fallback_model = "claude-haiku-4-5" if "haiku" in model_name.lower() else "claude-sonnet-4-5"
                 model_name = fallback_model
                 with urllib.request.urlopen(make_req(fallback_model), timeout=25) as resp:

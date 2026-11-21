@@ -39,7 +39,13 @@ except ImportError:
             Normal = None
         mw = None
 
-from .ai_search import detect_key_provider
+from .ai_search import (
+    detect_key_provider,
+    infer_provider_from_model,
+    looks_like_model_name,
+    normalize_model_name,
+    sanitize_ai_config,
+)
 from .sync import NousSyncService
 from .theme import ensure_fonts_loaded, get_nous_stylesheet, apply_satoshi_to_widget_tree
 
@@ -53,7 +59,7 @@ class SettingsDialog(QDialog):
         on_saved: Optional[Callable[[Dict[str, Any]], None]] = None
     ):
         super().__init__(parent)
-        self.config = dict(config)
+        self.config = sanitize_ai_config(config)
         self.sync_service = sync_service
         self.on_saved = on_saved
         self.setWindowTitle("nous anki settings")
@@ -189,8 +195,28 @@ class SettingsDialog(QDialog):
 
         self.api_key_input = QLineEdit(self.config.get("ai_api_key", ""))
         self.api_key_input.setEchoMode(QLineEdit.EchoMode.Password)
-        self.api_key_input.setPlaceholderText("AIzaSy... (gemini), sk-ant-... (claude), or sk-... (openai)")
-        ai_form.addRow("api key:", self.api_key_input)
+        self.api_key_input.setPlaceholderText("paste key: sk-ant-... (claude), AIzaSy... (gemini), sk-... (openai)")
+
+        key_row = QHBoxLayout()
+        key_row.setContentsMargins(0, 0, 0, 0)
+        key_row.setSpacing(4)
+        key_row.addWidget(self.api_key_input, 1)
+
+        self.show_key_btn = QPushButton("👁")
+        self.show_key_btn.setProperty("class", "iconButton")
+        self.show_key_btn.setToolTip("Show or hide API key")
+        self.show_key_btn.setStyleSheet(
+            "font-size: 11px; padding: 4px 8px; background-color: #f1eef8; "
+            "color: #5f5390; border: 1px solid #e2ddf0; border-radius: 10px;"
+        )
+        def _toggle_echo():
+            if self.api_key_input.echoMode() == QLineEdit.EchoMode.Password:
+                self.api_key_input.setEchoMode(QLineEdit.EchoMode.Normal)
+            else:
+                self.api_key_input.setEchoMode(QLineEdit.EchoMode.Password)
+        self.show_key_btn.clicked.connect(_toggle_echo)
+        key_row.addWidget(self.show_key_btn)
+        ai_form.addRow("api key:", key_row)
 
         self.ai_model_input = QLineEdit(self.config.get("ai_model", "gemini-2.5-flash"))
         self.ai_model_input.setPlaceholderText("gemini-2.5-flash / claude-haiku-4-5 / gpt-4o-mini")
@@ -288,7 +314,18 @@ class SettingsDialog(QDialog):
         entered_key = self.api_key_input.text().strip()
         entered_model = self.ai_model_input.text().strip()
 
-        # Smart key prefix detection: store under matching provider without wiping other providers' keys
+        # 1. If user accidentally swapped API Key and Model Name fields, swap them back automatically
+        if looks_like_model_name(entered_key) and detect_key_provider(entered_model) is not None:
+            entered_key, entered_model = entered_model, entered_key
+
+        # 2. If user typed a model name (e.g. 'claude-haiku-5-5') into the API Key field:
+        #    Treat it as the desired model name, NOT as an API key!
+        if looks_like_model_name(entered_key):
+            entered_model = entered_key
+            chosen_provider = infer_provider_from_model(entered_model, chosen_provider)
+            entered_key = self._provider_keys.get(chosen_provider, "")
+
+        # 3. Smart key prefix detection: store under matching provider without wiping other providers' keys
         detected_prov = detect_key_provider(entered_key)
         if detected_prov:
             self._provider_keys[detected_prov] = entered_key
@@ -304,13 +341,13 @@ class SettingsDialog(QDialog):
         elif entered_key and chosen_provider in self._provider_keys:
             self._provider_keys[chosen_provider] = entered_key
 
-        # Upgrade retired Claude 3.5 model slugs if entered
-        if chosen_provider == "anthropic" and entered_model in ("claude-3-5-haiku-20241022", "claude-3-5-haiku-latest"):
-            entered_model = "claude-haiku-4-5"
-        elif chosen_provider == "anthropic" and entered_model in ("claude-3-5-sonnet-20241022", "claude-3-5-sonnet-latest"):
-            entered_model = "claude-sonnet-4-5"
+        # 4. Normalize model slug (e.g. claude-haiku-5-5 or claude-3-5-haiku-20241022 -> claude-haiku-4-5)
+        entered_model = normalize_model_name(entered_model, chosen_provider) or "gemini-2.5-flash"
+        if chosen_provider == "custom":
+            chosen_provider = infer_provider_from_model(entered_model, "custom")
 
         updated_config = dict(self.config)
+        updated_config.pop("_misplaced_model_in_key", None)
         updated_config.update({
             "nous_email": self.email_input.text().strip(),
             "nous_password": self.password_input.text(),
@@ -320,7 +357,7 @@ class SettingsDialog(QDialog):
             "sync_interval_seconds": self.sync_interval_spin.value(),
             "ai_provider": chosen_provider,
             "ai_api_key": entered_key,
-            "ai_model": entered_model or "gemini-2.5-flash",
+            "ai_model": entered_model,
             "ai_base_url": self.ai_base_url_input.text().strip(),
             "gemini_api_key": self._provider_keys.get("gemini", ""),
             "anthropic_api_key": self._provider_keys.get("anthropic", ""),

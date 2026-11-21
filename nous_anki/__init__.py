@@ -4,6 +4,7 @@ Automatically logs Anki study hours to Nous, shows live tree growth,
 links to Nous City, provides AI & web search with custom API keys, and card notes.
 """
 
+import json
 import os
 from typing import Any, Dict
 
@@ -20,6 +21,7 @@ except ImportError:
     class Qt:
         RightDockWidgetArea = None
 
+from .ai_search import sanitize_ai_config
 from .dock_widget import NousDockWidget
 from .notes import NotesManager
 from .settings_dialog import SettingsDialog
@@ -32,6 +34,22 @@ dock_widget: Any = None
 sync_service: Any = None
 notes_mgr: Any = None
 addon_config: Dict[str, Any] = {}
+
+
+def get_user_storage_dir() -> str:
+    """Returns persistent directory for add-on state and pending sessions (preserved across .ankiaddon updates)."""
+    base_dir = mw.pm.addonFolder() if mw and hasattr(mw, "pm") else os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    # If __file__ is already inside nous_anki, don't double-nest nous_anki/nous_anki
+    if os.path.basename(os.path.dirname(os.path.abspath(__file__))) == ADDON_NAME and not (mw and hasattr(mw, "pm")):
+        user_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "user_files")
+    else:
+        user_dir = os.path.join(base_dir, ADDON_NAME, "user_files")
+    os.makedirs(user_dir, exist_ok=True)
+    return user_dir
+
+
+def _get_persistent_config_path() -> str:
+    return os.path.join(get_user_storage_dir(), "nous_config.json")
 
 
 def load_configuration() -> Dict[str, Any]:
@@ -53,28 +71,61 @@ def load_configuration() -> Dict[str, Any]:
         "perplexity_api_key": "",
         "show_dock_on_startup": True,
     }
+    # 1. Load from user_files/nous_config.json (survives .ankiaddon reinstalls)
+    persist_path = _get_persistent_config_path()
+    if os.path.isfile(persist_path):
+        try:
+            with open(persist_path, "r", encoding="utf-8") as f:
+                persisted = json.load(f)
+            if isinstance(persisted, dict):
+                for k, v in persisted.items():
+                    if v not in (None, ""):
+                        default_config[k] = v
+        except Exception:
+            pass
+
+    # 2. Load from Anki's addonManager config (overlaying non-empty values)
     loaded = mw.addonManager.getConfig(__name__) if mw else None
-    if loaded:
-        default_config.update(loaded)
-    addon_config = default_config
+    if isinstance(loaded, dict):
+        for k, v in loaded.items():
+            if v not in (None, "") or k not in default_config:
+                default_config[k] = v
+
+    addon_config = sanitize_ai_config(default_config)
+    addon_config.pop("_misplaced_model_in_key", None)
+
+    # Save merged & sanitized config back to both stores
+    try:
+        with open(persist_path, "w", encoding="utf-8") as f:
+            json.dump(addon_config, f, indent=2)
+    except Exception:
+        pass
+    if mw:
+        try:
+            mw.addonManager.writeConfig(__name__, addon_config)
+        except Exception:
+            pass
     return addon_config
 
 
 def save_configuration(new_config: Dict[str, Any]):
     global addon_config
     addon_config.update(new_config)
+    addon_config = sanitize_ai_config(addon_config)
+    addon_config.pop("_misplaced_model_in_key", None)
+    try:
+        persist_path = _get_persistent_config_path()
+        with open(persist_path, "w", encoding="utf-8") as f:
+            json.dump(addon_config, f, indent=2)
+    except Exception:
+        pass
     if mw:
-        mw.addonManager.writeConfig(__name__, addon_config)
+        try:
+            mw.addonManager.writeConfig(__name__, addon_config)
+        except Exception:
+            pass
     if dock_widget:
         dock_widget.apply_config(addon_config)
-
-
-def get_user_storage_dir() -> str:
-    """Returns persistent directory for add-on state and pending sessions."""
-    base_dir = mw.pm.addonFolder() if mw and hasattr(mw, "pm") else os.path.dirname(__file__)
-    user_dir = os.path.join(base_dir, ADDON_NAME, "user_files")
-    os.makedirs(user_dir, exist_ok=True)
-    return user_dir
 
 
 def open_settings_dialog():
